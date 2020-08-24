@@ -7,25 +7,21 @@ import threading
 from collections import deque
 import signal
 import sys
+import glob
+import os
 
-testset = ["Hello","World","Kai","Maria","Max", "Vinzenz"]
+# some important paths
+basepath = os.getcwd()
 
-counter = 0
-counter_max = len(testset)-1
-counter_min = 0
-inc_old = 0
-inc_new = 0
-
-# LCD
-lcd = CharLCD('PCF8574', 0x27, cols=16, rows=2)
+# declare list holding list of recordings
+reclist = []
 
 # LEDs
 record_ledpin = 24
 record_led = LED(record_ledpin)
 
-# Welcome message
-lcd.write_string('Hey Kai, how are you doing?')
-time.sleep(2)
+# LCD
+lcd = CharLCD('PCF8574', 0x27, cols=16, rows=2)
 
 def display_write(message=" ", x=0, y=0, clear=1):
 	if clear == 1:
@@ -36,6 +32,64 @@ def display_write(message=" ", x=0, y=0, clear=1):
 def exit():
 	lcd.clear()
 	lcd.write_string('Bye Bye')
+
+# status variables for the differenct functionalities
+recording = False
+playing = False
+idle = True
+menu = False
+
+# get the items of a certain menu level
+def get_menu_items(level="0"):
+	global Menu_labels
+	Menu_keys = list(Menu_labels)
+	# get the level (number of digits w/o point) of each list entry
+	Menu_items = []
+	for i in Menu_keys:
+		i_nodots = i.replace(".","")
+		if  is level:
+			Menu_levels.append(len(i.replace(".",""))-1)
+	return(Menu_levels)
+
+# which screen are we currently showing and where are we in the menus
+Menu_labels = { "0":"Recordings...",
+			"0.1":"Test.wav",
+		"1":"Audio Settings",
+			"1.0":"Sound Input",
+			"1.1":"Sound Output",
+		"2":"System Info",
+			"2.0":"CPU Usage",
+			"2.1":"CPU Temp"}
+
+Menu_maxdepth = 5
+Menu_index = [0,0,0,0,0]
+Menu_level = 0
+#Menu_length = len(Menu_labels[ Menu_index[Menu_level][SubMenu_level]]) - 1
+counter = 0
+counter_max = 0
+
+def standard_screen():
+	display_write("=== READY! ===")
+	display_write("Rec Play or Menu",clear=0)
+
+def show_menu():
+	global Menu_index
+	global Menu_level
+	global Menu_labels
+	global Menu_length
+	global counter
+
+	print(Menu_labels[Menu_index[Menu_level][SubMenu_level]][counter])
+	display_write(Menu_labels[Menu_index[Menu_level][SubMenu_level]][counter])
+
+def scroll_menu(inc):
+	global Menu_index
+	global Menu_level
+	global Menu_labels
+	global Menu_length
+
+	#if inc is 1 and MainMenu_index < MenuLength-1:
+		
 
 # this function handles all button presses
 def button_handler(record,play,loop,enter):
@@ -118,6 +172,32 @@ def rotary_status(increment):
 		# sleep
 		time.sleep(0.003)
 
+# get the list of recordings
+def get_recordingsList(path):
+	recordings = glob.glob(path + "*.wav")
+	basenames = []
+	for i in  range(0,len(recordings)):
+		basenames.append(os.path.splitext(os.path.basename(recordings[i]))[0])
+	recordings = [basenames,recordings]
+	return(recordings)
+
+def refresh_menu(input):
+	global Menu_labels
+	global reclist
+	Menu_labels[1][0] = reclist[0]
+
+# Startup routine
+def startup():
+	global reclist
+
+	# welcoe message ;)
+	display_write("=== WELCOME! ===")
+	# get the list of existing recordings
+	reclist = get_recordingsList(basepath + "/recordings/")
+	# save the filenames
+	time.sleep(2)
+
+
 def signal_handler(sig, frame):
 	exit()
 	time.sleep(1)
@@ -134,25 +214,28 @@ enter = deque([0],1)
 buttons = threading.Thread(target=button_handler, args = (record,play,loop,enter, ), daemon = True)
 rotary.start()
 buttons.start()
-time.sleep(1)
 
-# main program loop
+# main program
 if __name__ == "__main__":
-	print("entering main part")
+	# call the startup routine and then move on to the main part
+	startup()
+	#refresh_menu(reclist)
 	while True:
 		# check the rotary thread for new input
 		while len(rot) > 0:
 			item = rot.popleft()
 			counter += item
 			if counter > counter_max:
-				counter = counter_min
-			if counter < counter_min:
+				counter = 0
+			if counter < 0:
 				counter = counter_max
-			print(counter)
-		if counter != inc_old:
-			display_write(str(counter),0,0)
-			display_write(testset[counter],2,0,clear=0)
-			inc_old = counter
+			if menu:
+				print("counter", counter)
+				print("max", counter_max)
+				Menu_index[Menu_level][SubMenu_level] = counter
+				print("current menu index",Menu_index[Menu_level][SubMenu_level])
+				print("Menu index",Menu_index)
+				#show_menu()
 
 		# check the buttons thread for new input
 		while len(record) > 0:
@@ -171,21 +254,22 @@ if __name__ == "__main__":
 				print("Button PLAY released",item)
 		while len(loop) > 0:
 			item = loop.popleft()
-			if item is 0:
-				print("Button LOOP pressed",item)
-			if item is 1:
-				print("Button LOOP released",item)
+			if item is 0 and not idle:
+				standard_screen()
+				idle = True
+				menu = False
 		while len(enter) > 0:
 			item = enter.popleft()
-			if item is 0:
-				print("Button ENTER pressed",item)
-			if item is 1:
-				print("Button ENTER released",item)
+			if item is 0 and idle:
+				Menu_level = 0
+				SubMenu_level = 0
+				counter_max = len(Menu_labels[Menu_index[Menu_level][SubMenu_level]]) - 1
+				show_menu()
+				idle = False
+				menu = True
 
-
-		# check for exit condition
-		#signal.signal(signal.SIGINT, signal_handler)
-		#signal.pause()
+		# here we will do all the menu handling
+		
 
 		# some delay to reduce CPU
 		time.sleep(0.01)
