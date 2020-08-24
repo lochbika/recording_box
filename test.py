@@ -10,6 +10,8 @@ import sys
 import glob
 import os
 import LCDmenu
+import pyaudio
+import wave
 
 # some important paths
 basepath = os.getcwd()
@@ -142,6 +144,7 @@ def get_recordingsList(path):
 
 # Startup routine
 def startup():
+	global reclist
 	# welcoe message ;)
 	display_write("=== WELCOME! ===")
 	# get the list of existing recordings and update the menu with it
@@ -150,6 +153,29 @@ def startup():
 	# save the filenames
 	time.sleep(2)
 	standard_screen()
+
+# audio related stuff
+def playRecording(file):
+	CHUNK = 1024
+	wf = wave.open(file, 'rb')
+
+	p = pyaudio.PyAudio()
+
+	stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
+			channels=wf.getnchannels(),
+			rate=wf.getframerate(),
+			output=True)
+
+	data = wf.readframes(CHUNK)
+
+	while data != '':
+		stream.write(data)
+		data = wf.readframes(CHUNK)
+
+	stream.stop_stream()
+	stream.close()
+
+	p.terminate()
 
 # setup and start the rotary switch daemon
 rot = deque([0,0,0,0,0],5)
@@ -189,10 +215,10 @@ if __name__ == "__main__":
 				record_led.off()
 		while len(play) > 0:
 			item = play.popleft()
-			if item is 0:
+			if item is 0 and MainMenu.CurrentItem.startswith("0."):
 				print("Button PLAY pressed",item)
-			if item is 1:
-				print("Button PLAY released",item)
+				selectedrecording = int(MainMenu.CurrentItem[:-2])
+				playRecording(reclist[1][selectedrecording])
 		while len(loop) > 0:
 			item = loop.popleft()
 			if item is 0 and menu:
@@ -212,7 +238,6 @@ if __name__ == "__main__":
 			elif item is 0 and menu and not MainMenu.currentItemIsAction():
 				MainMenu.levelDescent()
 				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
-
 
 		# some delay to reduce CPU
 		time.sleep(0.01)
