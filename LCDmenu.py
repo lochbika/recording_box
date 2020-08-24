@@ -53,6 +53,17 @@ class LCDmenu:
 		newitem = self.getPrevItem()
 		self.CurrentItem = newitem
 
+	def delLevelItemList(self,leveldescriptor):
+		keys = list(self.AllItems)
+		for i in keys:
+			if i.startswith(leveldescriptor):
+				self.AllItems.pop(i)
+
+	def replaceLevelItemList(self,leveldescriptor,newlist):
+		self.delLevelItemList(leveldescriptor)
+		for i in range(0,len(newlist)):
+			self.AllItems[leveldescriptor + str(i)] = newlist[i]
+
 	def currentItemIsAction(self):
 		if self.AllItems.get(self.CurrentItem + ".0") == None:
 			return(True)

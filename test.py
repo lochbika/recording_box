@@ -42,7 +42,11 @@ Menu_labels = { "0":"List Recordings",
 			"0.0":"Test.wav",
 		"1":"Audio Settings",
 			"1.0":"Sound Input",
-			"1.1":"Sound Output",
+				"1.0.0":"Refresh List",
+			"1.1":"Input Volume",
+			"1.2":"Sound Output",
+				"1.2.0":"Refresh List",
+			"1.3":"Output Volume",
 		"2":"System Info",
 			"2.0":"CPU Usage",
 			"2.1":"CPU Temp"}
@@ -54,7 +58,7 @@ counter_max = 0
 
 def standard_screen():
 	display_write("=== READY! ===")
-	display_write("Rec Play or Menu",clear=0)
+	display_write("Rec Play or Menu",y=1,clear=0)
 
 # this function handles all button presses
 def button_handler(record,play,loop,enter):
@@ -140,10 +144,12 @@ def get_recordingsList(path):
 def startup():
 	# welcoe message ;)
 	display_write("=== WELCOME! ===")
-	# get the list of existing recordings
+	# get the list of existing recordings and update the menu with it
 	reclist = get_recordingsList(basepath + "/recordings/")
+	MainMenu.replaceLevelItemList("0.",reclist[0])
 	# save the filenames
 	time.sleep(2)
+	standard_screen()
 
 # setup and start the rotary switch daemon
 rot = deque([0,0,0,0,0],5)
@@ -203,7 +209,7 @@ if __name__ == "__main__":
 				idle = False
 				menu = True
 				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
-			elif item is 0 and menu:
+			elif item is 0 and menu and not MainMenu.currentItemIsAction():
 				MainMenu.levelDescent()
 				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
 
