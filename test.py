@@ -9,12 +9,10 @@ import signal
 import sys
 import glob
 import os
+import LCDmenu
 
 # some important paths
 basepath = os.getcwd()
-
-# declare list holding list of recordings
-reclist = []
 
 # LEDs
 record_ledpin = 24
@@ -39,21 +37,9 @@ playing = False
 idle = True
 menu = False
 
-# get the items of a certain menu level
-def get_menu_items(level="0"):
-	global Menu_labels
-	Menu_keys = list(Menu_labels)
-	# get the level (number of digits w/o point) of each list entry
-	Menu_items = []
-	for i in Menu_keys:
-		i_nodots = i.replace(".","")
-		if  is level:
-			Menu_levels.append(len(i.replace(".",""))-1)
-	return(Menu_levels)
-
-# which screen are we currently showing and where are we in the menus
-Menu_labels = { "0":"Recordings...",
-			"0.1":"Test.wav",
+# Define the main menu
+Menu_labels = { "0":"List Recordings",
+			"0.0":"Test.wav",
 		"1":"Audio Settings",
 			"1.0":"Sound Input",
 			"1.1":"Sound Output",
@@ -61,35 +47,14 @@ Menu_labels = { "0":"Recordings...",
 			"2.0":"CPU Usage",
 			"2.1":"CPU Temp"}
 
-Menu_maxdepth = 5
-Menu_index = [0,0,0,0,0]
-Menu_level = 0
-#Menu_length = len(Menu_labels[ Menu_index[Menu_level][SubMenu_level]]) - 1
+MainMenu = LCDmenu.LCDmenu(Menu_labels)
+
 counter = 0
 counter_max = 0
 
 def standard_screen():
 	display_write("=== READY! ===")
 	display_write("Rec Play or Menu",clear=0)
-
-def show_menu():
-	global Menu_index
-	global Menu_level
-	global Menu_labels
-	global Menu_length
-	global counter
-
-	print(Menu_labels[Menu_index[Menu_level][SubMenu_level]][counter])
-	display_write(Menu_labels[Menu_index[Menu_level][SubMenu_level]][counter])
-
-def scroll_menu(inc):
-	global Menu_index
-	global Menu_level
-	global Menu_labels
-	global Menu_length
-
-	#if inc is 1 and MainMenu_index < MenuLength-1:
-		
 
 # this function handles all button presses
 def button_handler(record,play,loop,enter):
@@ -121,22 +86,18 @@ def button_handler(record,play,loop,enter):
 		loop_state = GPIO.input(loop_pin)
 		enter_state = GPIO.input(enter_pin)
 		if record_state != record_OLDstate:
-			#print("Button RECORD pressed!", record_state)
 			record.append(record_state)
 			record_OLDstate = record_state
 		if play_state != play_OLDstate:
-			#print("Button PLAY pressed!", play_state)
 			play.append(play_state)
 			play_OLDstate = play_state
 		if loop_state != loop_OLDstate:
-			#print("Button LOOP pressed!", loop_state)
 			loop.append(loop_state)
 			loop_OLDstate = loop_state
 		if enter_state != enter_OLDstate:
-			#print("Button ENTER pressed!", enter_state)
 			enter.append(enter_state)
 			enter_OLDstate = enter_state
-		time.sleep(0.1)
+		time.sleep(0.05)
 
 def rotary_status(increment):
 	# init rotary encoder
@@ -155,24 +116,18 @@ def rotary_status(increment):
 		# the following situation is for turning the knob anti-clockwise (left)
 		if clkState != clkLastState and clkState == dtState and clkState == 1:
 			inc = -1
-			#print("turning CCW")
-			#print("clk State:",clkState)
-			#print("dt  State:",dtState)
 			rot.append(inc)
 
 		# the following situation is for turning the knob clockwise (right)
 		if clkState != clkLastState and clkState != dtState and clkState == 1:
 			inc = 1
-			#print("turning CW")
-			#print("clk State:",clkState)
-			#print("dt  State:",dtState)
 			rot.append(inc)
 		# update the last state
 		clkLastState = clkState
 		# sleep
 		time.sleep(0.003)
 
-# get the list of recordings
+# declare list holding list of recordings and get the list of recordings
 def get_recordingsList(path):
 	recordings = glob.glob(path + "*.wav")
 	basenames = []
@@ -181,15 +136,8 @@ def get_recordingsList(path):
 	recordings = [basenames,recordings]
 	return(recordings)
 
-def refresh_menu(input):
-	global Menu_labels
-	global reclist
-	Menu_labels[1][0] = reclist[0]
-
 # Startup routine
 def startup():
-	global reclist
-
 	# welcoe message ;)
 	display_write("=== WELCOME! ===")
 	# get the list of existing recordings
@@ -197,45 +145,32 @@ def startup():
 	# save the filenames
 	time.sleep(2)
 
-
-def signal_handler(sig, frame):
-	exit()
-	time.sleep(1)
-	sys.exit(0)
-
-# start the rotary switch daemon
-#rotary_queue = Queue(maxsize = 5)
+# setup and start the rotary switch daemon
 rot = deque([0,0,0,0,0],5)
 rotary = threading.Thread(target=rotary_status, args = (rot, ), daemon = True)
+rotary.start()
+# setup and start the button hanler
 record = deque([0],1)
 play = deque([0],1)
 loop = deque([0],1)
 enter = deque([0],1)
 buttons = threading.Thread(target=button_handler, args = (record,play,loop,enter, ), daemon = True)
-rotary.start()
 buttons.start()
 
 # main program
 if __name__ == "__main__":
 	# call the startup routine and then move on to the main part
 	startup()
-	#refresh_menu(reclist)
 	while True:
 		# check the rotary thread for new input
 		while len(rot) > 0:
 			item = rot.popleft()
-			counter += item
-			if counter > counter_max:
-				counter = 0
-			if counter < 0:
-				counter = counter_max
 			if menu:
-				print("counter", counter)
-				print("max", counter_max)
-				Menu_index[Menu_level][SubMenu_level] = counter
-				print("current menu index",Menu_index[Menu_level][SubMenu_level])
-				print("Menu index",Menu_index)
-				#show_menu()
+				if item == 1:
+					MainMenu.setNextItem()
+				else:
+					MainMenu.setPrevItem()
+				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
 
 		# check the buttons thread for new input
 		while len(record) > 0:
@@ -254,22 +189,24 @@ if __name__ == "__main__":
 				print("Button PLAY released",item)
 		while len(loop) > 0:
 			item = loop.popleft()
-			if item is 0 and not idle:
-				standard_screen()
-				idle = True
-				menu = False
+			if item is 0 and menu:
+				if MainMenu.CurrentLevel == 0:
+					standard_screen()
+					idle = True
+					menu = False
+				else:
+					MainMenu.levelAscent()
+					display_write(MainMenu.AllItems[MainMenu.CurrentItem])
 		while len(enter) > 0:
 			item = enter.popleft()
 			if item is 0 and idle:
-				Menu_level = 0
-				SubMenu_level = 0
-				counter_max = len(Menu_labels[Menu_index[Menu_level][SubMenu_level]]) - 1
-				show_menu()
 				idle = False
 				menu = True
+				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
+			elif item is 0 and menu:
+				MainMenu.levelDescent()
+				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
 
-		# here we will do all the menu handling
-		
 
 		# some delay to reduce CPU
 		time.sleep(0.01)
