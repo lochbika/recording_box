@@ -1,5 +1,6 @@
 # initialize
 from gpiozero import LED
+from gpiozero import CPUTemperature
 from RPLCD.i2c import CharLCD
 from RPi import GPIO
 import time
@@ -38,6 +39,8 @@ recording = False
 playing = False
 idle = True
 menu = False
+shutdown_timer = 0
+shutdown_bit = False
 
 # Define the main menu
 Menu_labels = { "0":"List Recordings",
@@ -50,6 +53,7 @@ Menu_labels = { "0":"List Recordings",
 				"1.2.0":"Refresh List",
 			"1.3":"Output Volume",
 		"2":"System Info",
+			"2.2":"Storage",
 			"2.0":"CPU Usage",
 			"2.1":"CPU Temp"}
 
@@ -60,7 +64,7 @@ counter_max = 0
 
 def standard_screen():
 	display_write("=== READY! ===")
-	display_write("Rec Play or Menu",y=1,clear=0)
+	display_write("Rec,Play or Menu",y=1,clear=0)
 
 # this function handles all button presses
 def button_handler(record,play,loop,enter):
@@ -142,40 +146,111 @@ def get_recordingsList(path):
 	recordings = [basenames,recordings]
 	return(recordings)
 
+# get menu items for audio input
+def get_audioInputList():
+	indices = []
+	names = []
+	p = pyaudio.PyAudio()
+	for i in range(p.get_device_count()):
+		if p.get_device_info_by_index(i).get('maxInputChannels') > 0:
+			indices.append(i)
+			names.append(p.get_device_info_by_index(i).get('name'))
+	input_list = [indices,names]
+	return(input_list)
+
+def get_audioOutputList():
+	indices = []
+	names = []
+	p = pyaudio.PyAudio()
+	for i in range(p.get_device_count()):
+		if p.get_device_info_by_index(i).get('maxOutputChannels') > 0:
+			indices.append(i)
+			names.append(p.get_device_info_by_index(i).get('name'))
+	output_list = [indices,names]
+	return(output_list)
+
+
 # Startup routine
 def startup():
 	global reclist
+	global input_devices
 	# welcoe message ;)
 	display_write("=== WELCOME! ===")
 	# get the list of existing recordings and update the menu with it
 	reclist = get_recordingsList(basepath + "/recordings/")
 	MainMenu.replaceLevelItemList("0.",reclist[0])
+	# get input devices and put into menu
+	input_devices = get_audioInputList()
+	MainMenu.replaceLevelItemList("1.0.",input_devices[1])
+	# get output devices and put into menu
+	output_devices = get_audioOutputList()
+	MainMenu.replaceLevelItemList("1.2.",output_devices[1])
 	# save the filenames
 	time.sleep(2)
 	standard_screen()
 
 # audio related stuff
-def playRecording(file):
-	CHUNK = 1024
-	wf = wave.open(file, 'rb')
+def audioplayer(file,action):
+	def startPlay(filename):
+		wf = wave.open(filename, 'rb')
 
-	p = pyaudio.PyAudio()
+		# instantiate PyAudio (1)
+		p = pyaudio.PyAudio()
 
-	stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
-			channels=wf.getnchannels(),
-			rate=wf.getframerate(),
-			output=True)
+		# define callback (2)
+		def callback(in_data, frame_count, time_info, status_flags):
+			data = wf.readframes(frame_count)
+			return (data, pyaudio.paContinue)
 
-	data = wf.readframes(CHUNK)
+		# open stream using callback (3)
+		stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
+				channels=wf.getnchannels(),
+				rate=wf.getframerate(),
+				output=True,
+				stream_callback=callback)
 
-	while data != '':
-		stream.write(data)
-		data = wf.readframes(CHUNK)
+		# start the stream (4)
+		stream.start_stream()
 
-	stream.stop_stream()
-	stream.close()
+		# return handlers
+		return(wf, p, stream)
 
-	p.terminate()
+	def togglePause(stream_id):
+		if stream_id.is_active():
+			stream_id.stop_stream()
+		else:
+			stream_id.start_stream()
+
+	def stopPlay(stream_id, wf_id, p_id):
+		stream_id.stop_stream()
+		stream_id.close()
+		wf_id.close()
+		p_id.terminate()
+
+	while True:
+		# read for communication with main thread
+		while len(player_file) > 0:
+			item = player_file.popleft()
+			playID = startPlay(item)
+
+		while len(player_action) > 0:
+			item = action.popleft()
+			if item == "toggle":
+				togglePause(playID[2])
+			if item == "stop":
+				stopPlay(playID[2],playID[0],playID[1])
+				del playID
+
+		try:
+			playID
+		except NameError:
+			pass
+		else:
+			if playID[2].is_active():
+				ttt = playID[2]
+				ttt.get_cpu_load()
+				#display_write(str(playID[2].get_time()),y=1,clear=0)
+		time.sleep(0.05)
 
 # setup and start the rotary switch daemon
 rot = deque([0,0,0,0,0],5)
@@ -189,6 +264,12 @@ enter = deque([0],1)
 buttons = threading.Thread(target=button_handler, args = (record,play,loop,enter, ), daemon = True)
 buttons.start()
 
+# setup communicator with wave playing thread
+player_file = deque([],1)
+player_action = deque([],1)
+player = threading.Thread(target=audioplayer, args = (player_file, player_action, ), daemon = True)
+player.start()
+
 # main program
 if __name__ == "__main__":
 	# call the startup routine and then move on to the main part
@@ -200,7 +281,13 @@ if __name__ == "__main__":
 			if menu:
 				if item == 1:
 					MainMenu.setNextItem()
+					if playing:
+						player_action.append("stop")
+						playing = False
 				else:
+					if playing:
+						player_action.append("stop")
+						playing = False
 					MainMenu.setPrevItem()
 				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
 
@@ -215,13 +302,15 @@ if __name__ == "__main__":
 				record_led.off()
 		while len(play) > 0:
 			item = play.popleft()
-			if item is 0 and MainMenu.CurrentItem.startswith("0."):
-				print("Button PLAY pressed",item)
-				selectedrecording = int(MainMenu.CurrentItem[:-2])
-				playRecording(reclist[1][selectedrecording])
+			if item is 0 and menu and MainMenu.CurrentItem.startswith("0.") and not playing:
+				selectedrecording = int(MainMenu.CurrentItem.split(".")[MainMenu.CurrentLevel])
+				player_file.append(reclist[1][selectedrecording])
+				playing = True
+			elif playing:
+				player_action.append("toggle")
 		while len(loop) > 0:
 			item = loop.popleft()
-			if item is 0 and menu:
+			if item is 0 and menu and not playing:
 				if MainMenu.CurrentLevel == 0:
 					standard_screen()
 					idle = True
@@ -229,6 +318,23 @@ if __name__ == "__main__":
 				else:
 					MainMenu.levelAscent()
 					display_write(MainMenu.AllItems[MainMenu.CurrentItem])
+			elif item is 0 and idle:
+				shutdown_bit = True
+				start_time = time.time()
+				shutdown_timer = time.time() - start_time
+				display_write("Shutdown in:")
+			elif item is 1 and idle and shutdown_timer > 0:
+				shutdown_bit = False
+				shutdown_timer = 0
+				standard_screen()
+		# special section for the shutdown timer
+		if shutdown_bit:
+			shutdown_timer = time.time() - start_time
+			display_write(str(5 - round(shutdown_timer)) + " seconds",x=2,y=1,clear=0)
+			if shutdown_timer > 5:
+				os.system("sudo shutdown -h now")
+			time.sleep(0.05)
+
 		while len(enter) > 0:
 			item = enter.popleft()
 			if item is 0 and idle:
@@ -238,7 +344,19 @@ if __name__ == "__main__":
 			elif item is 0 and menu and not MainMenu.currentItemIsAction():
 				MainMenu.levelDescent()
 				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
-
+			elif item is 0 and menu and MainMenu.currentItemIsAction():
+				if MainMenu.CurrentItem == '2.1':
+					display_write("Temperature:")
+					display_write(str(round(CPUTemperature().temperature))+" degree",x=2,y=1,clear=0)
+				if MainMenu.CurrentItem == '2.2':
+					statvfs = os.statvfs(basepath)
+					fs_free = (statvfs.f_frsize * statvfs.f_bavail)/1000000000
+					fs_fullpercent = fs_free/((statvfs.f_frsize * statvfs.f_blocks)/1000000000)
+					display_write("FS: " +
+						str(round(fs_free,2)) +
+						" GB free")
+					display_write(str(round(100-fs_fullpercent*100,2)) +
+						" % full", x=2, y=1, clear=0)
 		# some delay to reduce CPU
 		time.sleep(0.01)
 
