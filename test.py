@@ -37,6 +37,7 @@ def exit():
 # status variables for the differenct functionalities
 recording = False
 playing = False
+looping = False
 idle = True
 menu = False
 shutdown_timer = 0
@@ -63,7 +64,7 @@ counter = 0
 counter_max = 0
 
 def standard_screen():
-	display_write("=== READY! ===")
+	display_write("==== READY! ====")
 	display_write("Rec,Play or Menu",y=1,clear=0)
 
 # this function handles all button presses
@@ -191,6 +192,12 @@ def startup():
 
 # audio related stuff
 def audioplayer(file,action):
+
+	loopA = 0
+	loopB = 0
+	active = False
+	ctime = 0.0
+
 	def startPlay(filename):
 		wf = wave.open(filename, 'rb')
 
@@ -227,11 +234,18 @@ def audioplayer(file,action):
 		wf_id.close()
 		p_id.terminate()
 
+	def getPlayTime(wf_id):
+		nframes = wf_id.getnframes()
+		cframe = wf_id.tell()
+		rate = wf_id.getframerate()
+		return(round(cframe/rate,1),round(nframes/rate,1))
+
 	while True:
 		# read for communication with main thread
 		while len(player_file) > 0:
 			item = player_file.popleft()
 			playID = startPlay(item)
+			active = True
 
 		while len(player_action) > 0:
 			item = action.popleft()
@@ -240,16 +254,27 @@ def audioplayer(file,action):
 			if item == "stop":
 				stopPlay(playID[2],playID[0],playID[1])
 				del playID
+				loopA = 0
+				loopB = 0
+				active = False
+				time.sleep(0.1)
+			if item == "startLoop":
+				loopA = playID[0].tell()
+			if item == "stopLoop":
+				loopB = playID[0].tell()
+			if item == "quitLoop":
+				print("message received")
+				loopA = 0
+				loopB = 0
 
-		try:
-			playID
-		except NameError:
-			pass
-		else:
-			if playID[2].is_active():
-				ttt = playID[2]
-				ttt.get_cpu_load()
-				#display_write(str(playID[2].get_time()),y=1,clear=0)
+		if active:
+			ctime = getPlayTime(playID[0])[0]
+			print(ctime)
+			#display_write(str(ctime),y=1,clear=0)
+			if loopA != 0 and loopB != 0:
+				if playID[0].tell() > loopB:
+					playID[0].setpos(loopA)
+
 		time.sleep(0.05)
 
 # setup and start the rotary switch daemon
@@ -266,7 +291,7 @@ buttons.start()
 
 # setup communicator with wave playing thread
 player_file = deque([],1)
-player_action = deque([],1)
+player_action = deque([],3)
 player = threading.Thread(target=audioplayer, args = (player_file, player_action, ), daemon = True)
 player.start()
 
@@ -279,26 +304,31 @@ if __name__ == "__main__":
 		while len(rot) > 0:
 			item = rot.popleft()
 			if menu:
+				if looping:
+					print("message sent")
+					player_action.append("quitLoop")
+					looping = False
+				if playing:
+					player_action.append("stop")
+					playing = False
 				if item == 1:
 					MainMenu.setNextItem()
-					if playing:
-						player_action.append("stop")
-						playing = False
 				else:
-					if playing:
-						player_action.append("stop")
-						playing = False
 					MainMenu.setPrevItem()
 				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
 
 		# check the buttons thread for new input
 		while len(record) > 0:
 			item = record.popleft()
-			if item is 0:
+			if item is 0 and idle:
 				print("Button RECORD pressed",item)
+				idle = False
+				recording = True
 				record_led.blink()
-			if item is 1:
+			if item is 1 and recording:
 				print("Button RECORD released",item)
+				idle = True
+				recording = False
 				record_led.off()
 		while len(play) > 0:
 			item = play.popleft()
@@ -327,13 +357,12 @@ if __name__ == "__main__":
 				shutdown_bit = False
 				shutdown_timer = 0
 				standard_screen()
-		# special section for the shutdown timer
-		if shutdown_bit:
-			shutdown_timer = time.time() - start_time
-			display_write(str(5 - round(shutdown_timer)) + " seconds",x=2,y=1,clear=0)
-			if shutdown_timer > 5:
-				os.system("sudo shutdown -h now")
-			time.sleep(0.05)
+			# handle the initiation and termination of a playing loop
+			elif item is 0 and playing and not looping:
+				player_action.append("startLoop")
+				looping = True
+			elif item is 0 and playing and looping:
+				player_action.append("stopLoop")
 
 		while len(enter) > 0:
 			item = enter.popleft()
@@ -344,10 +373,13 @@ if __name__ == "__main__":
 			elif item is 0 and menu and not MainMenu.currentItemIsAction():
 				MainMenu.levelDescent()
 				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
+			elif looping:
+				player_action.append("quitLoop")
+				looping = False
 			elif item is 0 and menu and MainMenu.currentItemIsAction():
 				if MainMenu.CurrentItem == '2.1':
 					display_write("Temperature:")
-					display_write(str(round(CPUTemperature().temperature))+" degree",x=2,y=1,clear=0)
+					display_write(str(round(CPUTemperature().temperature))+" degC",x=5,y=1,clear=0)
 				if MainMenu.CurrentItem == '2.2':
 					statvfs = os.statvfs(basepath)
 					fs_free = (statvfs.f_frsize * statvfs.f_bavail)/1000000000
@@ -356,7 +388,16 @@ if __name__ == "__main__":
 						str(round(fs_free,2)) +
 						" GB free")
 					display_write(str(round(100-fs_fullpercent*100,2)) +
-						" % full", x=2, y=1, clear=0)
+						" % full", x=3, y=1, clear=0)
+
+		# special section for the shutdown timer
+		if shutdown_bit:
+			shutdown_timer = time.time() - start_time
+			display_write(str(5 - round(shutdown_timer)) + " seconds",x=2,y=1,clear=0)
+			if shutdown_timer > 5:
+				os.system("sudo shutdown -h now")
+			time.sleep(0.05)
+
 		# some delay to reduce CPU
 		time.sleep(0.01)
 
