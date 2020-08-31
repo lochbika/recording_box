@@ -13,6 +13,8 @@ import os
 import LCDmenu
 import pyaudio
 import wave
+import struct
+import AudioIO
 
 # some important paths
 basepath = os.getcwd()
@@ -42,6 +44,12 @@ idle = True
 menu = False
 shutdown_timer = 0
 shutdown_bit = False
+
+# audio I/O related variables
+input_rate = 0
+input_channels = 1
+output_rate = 44100
+output_channels = 2
 
 # Define the main menu
 Menu_labels = { "0":"List Recordings",
@@ -155,8 +163,12 @@ def get_audioInputList():
 	for i in range(p.get_device_count()):
 		if p.get_device_info_by_index(i).get('maxInputChannels') > 0:
 			indices.append(i)
-			names.append(p.get_device_info_by_index(i).get('name'))
+			dev_name = p.get_device_info_by_index(i).get('name')
+			if len(dev_name) > 16:
+				dev_name = dev_name[:14] + ".."
+			names.append(dev_name)
 	input_list = [indices,names]
+	p.terminate()
 	return(input_list)
 
 def get_audioOutputList():
@@ -168,6 +180,7 @@ def get_audioOutputList():
 			indices.append(i)
 			names.append(p.get_device_info_by_index(i).get('name'))
 	output_list = [indices,names]
+	p.terminate()
 	return(output_list)
 
 
@@ -207,6 +220,16 @@ def audioplayer(file,action):
 		# define callback (2)
 		def callback(in_data, frame_count, time_info, status_flags):
 			data = wf.readframes(frame_count)
+			# get average audio level over all channels
+			#try:
+			#	levels = []
+			#	for _i in range(frame_count):
+			#		levels.append(abs(struct.unpack('<h', data[_i:_i + 2])[0]))
+			#	avg_chunk = sum(levels)/len(levels)
+			#	print(str(round(avg_chunk,0)))
+			#	display_write(str(round(avg_chunk,0)), y=1, clear=0)
+			#except:
+			#	pass
 			return (data, pyaudio.paContinue)
 
 		# open stream using callback (3)
@@ -269,11 +292,24 @@ def audioplayer(file,action):
 
 		if active:
 			ctime = getPlayTime(playID[0])[0]
-			print(ctime)
+			#print(ctime)
 			#display_write(str(ctime),y=1,clear=0)
 			if loopA != 0 and loopB != 0:
 				if playID[0].tell() > loopB:
 					playID[0].setpos(loopA)
+
+		time.sleep(0.05)
+
+def audiorecorder(file,action):
+
+	def startRecording():
+		print("bla")
+
+	while True:
+		while len(player_action) > 0:
+			item = action.popleft()
+			if item == "bla":
+				time.sleep(0.1)
 
 		time.sleep(0.05)
 
@@ -324,11 +360,16 @@ if __name__ == "__main__":
 				print("Button RECORD pressed",item)
 				idle = False
 				recording = True
+				rec = AudioIO.Recorder()
+				rec_stream = rec.open(fname = basepath + "/recordings/" + "test.wav")
+				rec_stream.start_recording()
 				record_led.blink()
 			if item is 1 and recording:
 				print("Button RECORD released",item)
 				idle = True
 				recording = False
+				rec_stream.stop_recording()
+				rec_stream.close()
 				record_led.off()
 		while len(play) > 0:
 			item = play.popleft()
