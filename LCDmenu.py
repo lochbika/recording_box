@@ -32,18 +32,20 @@ class LCDmenu:
 			self.CurrentLevel = self.CurrentLevel - 1
 
 	def getNextItem(self):
-		newitem = self.CurrentItem[:-1] + str(int(self.CurrentItem[-1:]) + 1)
+		ndig = len(self.CurrentItem.split(".")[-1]) * -1
+		newitem = self.CurrentItem[:ndig] + str(int(self.CurrentItem[ndig:]) + 1)
 		if self.AllItems.get(newitem) != None:
 			return(newitem)
 		else:
-			return(self.CurrentItem[:-1] + "0")
+			return(self.CurrentItem[:ndig] + "0")
 
 	def getPrevItem(self):
-		newitem = self.CurrentItem[:-1] + str(int(self.CurrentItem[-1:]) - 1)
+		ndig = len(self.CurrentItem.split(".")[-1]) * -1
+		newitem = self.CurrentItem[:ndig] + str(int(self.CurrentItem[ndig:]) - 1)
 		if self.AllItems.get(newitem) != None:
 			return(newitem)
 		else:
-			return(self.CurrentItem[:-1] + str(len(self.getLevelItemList()) - 1))
+			return(self.CurrentItem[:ndig] + str(len(self.getLevelItemList()) - 1))
 
 	def setNextItem(self):
 		newitem = self.getNextItem()
