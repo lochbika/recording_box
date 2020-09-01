@@ -15,6 +15,7 @@ import pyaudio
 import wave
 import struct
 import AudioIO
+from datetime import datetime
 
 # some important paths
 basepath = os.getcwd()
@@ -149,10 +150,14 @@ def rotary_status(increment):
 # declare list holding list of recordings and get the list of recordings
 def get_recordingsList(path):
 	recordings = glob.glob(path + "*.wav")
-	basenames = []
-	for i in  range(0,len(recordings)):
-		basenames.append(os.path.splitext(os.path.basename(recordings[i]))[0])
-	recordings = [basenames,recordings]
+	if len(recordings) > 0:
+		recordings.sort(reverse = True)
+		basenames = []
+		for i in  range(0,len(recordings)):
+			basenames.append(os.path.splitext(os.path.basename(recordings[i]))[0])
+		recordings = [basenames,recordings]
+	else:
+		recordings = [["No recordings"],[""]]
 	return(recordings)
 
 # get menu items for audio input
@@ -178,7 +183,10 @@ def get_audioOutputList():
 	for i in range(p.get_device_count()):
 		if p.get_device_info_by_index(i).get('maxOutputChannels') > 0:
 			indices.append(i)
-			names.append(p.get_device_info_by_index(i).get('name'))
+			dev_name = p.get_device_info_by_index(i).get('name')
+			if len(dev_name) > 16:
+				dev_name = dev_name[:14] + ".."
+			names.append(dev_name)
 	output_list = [indices,names]
 	p.terminate()
 	return(output_list)
@@ -272,20 +280,20 @@ def audioplayer(file,action):
 
 		while len(player_action) > 0:
 			item = action.popleft()
-			if item == "toggle":
+			if item == "toggle" and active:
 				togglePause(playID[2])
-			if item == "stop":
+			if item == "stop" and active:
 				stopPlay(playID[2],playID[0],playID[1])
 				del playID
 				loopA = 0
 				loopB = 0
 				active = False
 				time.sleep(0.1)
-			if item == "startLoop":
+			if item == "startLoop" and active:
 				loopA = playID[0].tell()
-			if item == "stopLoop":
+			if item == "stopLoop" and active:
 				loopB = playID[0].tell()
-			if item == "quitLoop":
+			if item == "quitLoop" and active:
 				print("message received")
 				loopA = 0
 				loopB = 0
@@ -297,19 +305,6 @@ def audioplayer(file,action):
 			if loopA != 0 and loopB != 0:
 				if playID[0].tell() > loopB:
 					playID[0].setpos(loopA)
-
-		time.sleep(0.05)
-
-def audiorecorder(file,action):
-
-	def startRecording():
-		print("bla")
-
-	while True:
-		while len(player_action) > 0:
-			item = action.popleft()
-			if item == "bla":
-				time.sleep(0.1)
 
 		time.sleep(0.05)
 
@@ -361,7 +356,7 @@ if __name__ == "__main__":
 				idle = False
 				recording = True
 				rec = AudioIO.Recorder()
-				rec_stream = rec.open(fname = basepath + "/recordings/" + "test.wav")
+				rec_stream = rec.open(fname = basepath + "/recordings/" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".wav")
 				rec_stream.start_recording()
 				record_led.blink()
 			if item is 1 and recording:
@@ -370,6 +365,9 @@ if __name__ == "__main__":
 				recording = False
 				rec_stream.stop_recording()
 				rec_stream.close()
+				#time.sleep(0.5)
+				reclist = get_recordingsList(basepath + "/recordings/")
+				MainMenu.replaceLevelItemList("0.",reclist[0])
 				record_led.off()
 		while len(play) > 0:
 			item = play.popleft()
