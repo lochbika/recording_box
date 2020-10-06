@@ -7,17 +7,16 @@ class LCDmenu:
 		self.MaxDepth = 0
 
 	def levelCurrent(self):
-		self.CurrentLevel = len(self.CurrentItem.replace(".","")) - 1
+		self.CurrentLevel = len(self.CurrentItem.split(".")) - 1
 
 	def getLevelItemList(self):
 		keys = list(self.AllItems)
 		self.CurrentLevelItemList = []
+		levelBase = ".".join(self.CurrentItem.split(".")[:-1])
 		for i in keys:
-			i_nodots = i.replace(".","")
-			if len(i_nodots) is self.CurrentLevel + 1:
-				if i.startswith(self.CurrentItem[:-1]) and self.CurrentLevel > 0:
-					self.CurrentLevelItemList.append(self.AllItems[i])
-				elif self.CurrentLevel == 0:
+			i_list = i.split(".")
+			if len(i_list) is self.CurrentLevel + 1:
+				if ".".join(i_list[:-1]) == levelBase:
 					self.CurrentLevelItemList.append(self.AllItems[i])
 		return(self.CurrentLevelItemList)
 
@@ -27,25 +26,39 @@ class LCDmenu:
 			self.CurrentLevel = self.CurrentLevel + 1
 
 	def levelAscent(self):
-		if len(self.CurrentItem) > 1:
-			self.CurrentItem = self.CurrentItem[:-2]
+		if len(self.CurrentItem.split(".")) > 1:
+			self.CurrentItem = ".".join(self.CurrentItem.split(".")[:-1])
 			self.CurrentLevel = self.CurrentLevel - 1
 
 	def getNextItem(self):
-		ndig = len(self.CurrentItem.split(".")[-1]) * -1
-		newitem = self.CurrentItem[:ndig] + str(int(self.CurrentItem[ndig:]) + 1)
+		levelBase = ".".join(self.CurrentItem.split(".")[:-1])
+		curitem = self.CurrentItem.split(".")[-1]
+		if self.CurrentLevel > 0:
+			newitem = levelBase + "." + str(int(curitem) + 1)
+		else:
+			newitem = str(int(curitem) + 1)
 		if self.AllItems.get(newitem) != None:
 			return(newitem)
 		else:
-			return(self.CurrentItem[:ndig] + "0")
+			if self.CurrentLevel > 0:
+				return(levelBase + ".0")
+			else:
+				return("0")
 
 	def getPrevItem(self):
-		ndig = len(self.CurrentItem.split(".")[-1]) * -1
-		newitem = self.CurrentItem[:ndig] + str(int(self.CurrentItem[ndig:]) - 1)
+		levelBase = ".".join(self.CurrentItem.split(".")[:-1])
+		curitem = self.CurrentItem.split(".")[-1]
+		if self.CurrentLevel > 0:
+			newitem = levelBase + "." + str(int(curitem) - 1)
+		else:
+			newitem = str(int(curitem) - 1)
 		if self.AllItems.get(newitem) != None:
 			return(newitem)
 		else:
-			return(self.CurrentItem[:ndig] + str(len(self.getLevelItemList()) - 1))
+			if self.CurrentLevel > 0:
+				return(levelBase + "." +  str(len(self.getLevelItemList()) -1 ))
+			else:
+				return(str(len(self.getLevelItemList()) - 1))
 
 	def setNextItem(self):
 		newitem = self.getNextItem()
