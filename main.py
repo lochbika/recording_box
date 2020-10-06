@@ -25,7 +25,7 @@ record_ledpin = 24
 record_led = LED(record_ledpin)
 
 # LCD
-lcd = CharLCD('PCF8574', 0x27, cols=16, rows=2)
+lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4)
 
 def display_write(message=" ", x=0, y=0, clear=1):
 	if clear == 1:
@@ -47,10 +47,46 @@ shutdown_timer = 0
 shutdown_bit = False
 
 # audio I/O related variables
-input_rate = 0
+input_device = 1
+input_rate = 48000
 input_channels = 1
+
+output_device = 0
 output_rate = 44100
 output_channels = 2
+
+# get menu items for audio input
+def get_audioInputList():
+	indices = []
+	names = []
+	p = pyaudio.PyAudio()
+	for i in range(p.get_device_count()):
+		if p.get_device_info_by_index(i).get('maxInputChannels') > 0:
+			indices.append(i)
+			dev_name = p.get_device_info_by_index(i).get('name')
+			if len(dev_name) > 16:
+				dev_name = dev_name[:14] + ".."
+			names.append(dev_name)
+	input_list = [indices,names]
+	p.terminate()
+	return(input_list)
+
+def get_audioOutputList():
+	indices = []
+	names = []
+	p = pyaudio.PyAudio()
+	for i in range(p.get_device_count()):
+		if p.get_device_info_by_index(i).get('maxOutputChannels') > 0:
+			indices.append(i)
+			dev_name = p.get_device_info_by_index(i).get('name')
+			if len(dev_name) > 16:
+				dev_name = dev_name[:14] + ".."
+			names.append(dev_name)
+	output_list = [indices,names]
+	p.terminate()
+	return(output_list)
+
+
 
 # Define the main menu
 Menu_labels = { "0":"List Recordings",
@@ -73,8 +109,17 @@ counter = 0
 counter_max = 0
 
 def standard_screen():
-	display_write("==== READY! ====")
-	display_write("Rec,Play or Menu",y=1,clear=0)
+	display_write("====== READY! ======")
+	display_write("Record, Play or Menu",y=1,clear=0)
+
+def recording_screen(t="00:00"):
+	if t != None:
+		if t == "00:00" or t == "00:01":
+			display_write("== RECORDING! ==")
+			display_write("Length: " + t,y=1,clear=0)
+			time.sleep(0.5)
+		else:
+			display_write(t,x=8,y=1,clear=0)
 
 # this function handles all button presses
 def button_handler(record,play,loop,enter):
@@ -160,44 +205,12 @@ def get_recordingsList(path):
 		recordings = [["No recordings"],[""]]
 	return(recordings)
 
-# get menu items for audio input
-def get_audioInputList():
-	indices = []
-	names = []
-	p = pyaudio.PyAudio()
-	for i in range(p.get_device_count()):
-		if p.get_device_info_by_index(i).get('maxInputChannels') > 0:
-			indices.append(i)
-			dev_name = p.get_device_info_by_index(i).get('name')
-			if len(dev_name) > 16:
-				dev_name = dev_name[:14] + ".."
-			names.append(dev_name)
-	input_list = [indices,names]
-	p.terminate()
-	return(input_list)
-
-def get_audioOutputList():
-	indices = []
-	names = []
-	p = pyaudio.PyAudio()
-	for i in range(p.get_device_count()):
-		if p.get_device_info_by_index(i).get('maxOutputChannels') > 0:
-			indices.append(i)
-			dev_name = p.get_device_info_by_index(i).get('name')
-			if len(dev_name) > 16:
-				dev_name = dev_name[:14] + ".."
-			names.append(dev_name)
-	output_list = [indices,names]
-	p.terminate()
-	return(output_list)
-
-
 # Startup routine
 def startup():
 	global reclist
 	global input_devices
 	# welcoe message ;)
-	display_write("=== WELCOME! ===")
+	display_write("===== WELCOME! =====")
 	# get the list of existing recordings and update the menu with it
 	reclist = get_recordingsList(basepath + "/recordings/")
 	MainMenu.replaceLevelItemList("0.",reclist[0])
@@ -212,7 +225,7 @@ def startup():
 	standard_screen()
 
 # audio related stuff
-def audioplayer(file,action):
+def audioplayer(file, action):
 
 	loopA = 0
 	loopB = 0
@@ -228,16 +241,6 @@ def audioplayer(file,action):
 		# define callback (2)
 		def callback(in_data, frame_count, time_info, status_flags):
 			data = wf.readframes(frame_count)
-			# get average audio level over all channels
-			#try:
-			#	levels = []
-			#	for _i in range(frame_count):
-			#		levels.append(abs(struct.unpack('<h', data[_i:_i + 2])[0]))
-			#	avg_chunk = sum(levels)/len(levels)
-			#	print(str(round(avg_chunk,0)))
-			#	display_write(str(round(avg_chunk,0)), y=1, clear=0)
-			#except:
-			#	pass
 			return (data, pyaudio.paContinue)
 
 		# open stream using callback (3)
@@ -342,9 +345,9 @@ if __name__ == "__main__":
 				if playing:
 					player_action.append("stop")
 					playing = False
-				if item == 1:
+				if item == -1:
 					MainMenu.setNextItem()
-				else:
+				elif item == 1:
 					MainMenu.setPrevItem()
 				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
 
@@ -352,10 +355,10 @@ if __name__ == "__main__":
 		while len(record) > 0:
 			item = record.popleft()
 			if item is 0 and idle:
-				print("Button RECORD pressed",item)
+				display_write("== RECORDING! ==...")
 				idle = False
 				recording = True
-				rec = AudioIO.Recorder()
+				rec = AudioIO.Recorder(channels=input_channels, rate=input_rate, device=input_device)
 				rec_stream = rec.open(fname = basepath + "/recordings/" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".wav")
 				rec_stream.start_recording()
 				record_led.blink()
@@ -369,6 +372,7 @@ if __name__ == "__main__":
 				reclist = get_recordingsList(basepath + "/recordings/")
 				MainMenu.replaceLevelItemList("0.",reclist[0])
 				record_led.off()
+				standard_screen()
 		while len(play) > 0:
 			item = play.popleft()
 			if item is 0 and menu and MainMenu.CurrentItem.startswith("0.") and not playing:
@@ -428,6 +432,9 @@ if __name__ == "__main__":
 						" GB free")
 					display_write(str(round(100-fs_fullpercent*100,2)) +
 						" % full", x=3, y=1, clear=0)
+
+		if recording:
+			recording_screen(rec_stream.get_recordingtime())
 
 		# special section for the shutdown timer
 		if shutdown_bit:
