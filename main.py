@@ -16,6 +16,7 @@ import wave
 import struct
 import AudioIO
 from datetime import datetime
+import system_monitor as smon
 
 # some important paths
 basepath = os.getcwd()
@@ -99,9 +100,10 @@ Menu_labels = { "0":"List Recordings",
 				"1.2.0":"Refresh List",
 			"1.3":"Output Volume",
 		"2":"System Info",
-			"2.2":"Storage",
 			"2.0":"CPU Usage",
-			"2.1":"CPU Temp"}
+			"2.1":"CPU Temp",
+			"2.2":"Storage",
+			"2.3":"System monitor"}
 
 MainMenu = LCDmenu.LCDmenu(Menu_labels)
 
@@ -315,6 +317,7 @@ def audioplayer(file, action):
 rot = deque([0,0,0,0,0],5)
 rotary = threading.Thread(target=rotary_status, args = (rot, ), daemon = True)
 rotary.start()
+
 # setup and start the button hanler
 record = deque([0],1)
 play = deque([0],1)
@@ -328,6 +331,10 @@ player_file = deque([],1)
 player_action = deque([],3)
 player = threading.Thread(target=audioplayer, args = (player_file, player_action, ), daemon = True)
 player.start()
+
+# setup the system monitor thread
+sysmon = threading.Thread(target=smon.sysmonitor)
+#sysmon = smon.sysmonitor()
 
 # main program
 if __name__ == "__main__":
@@ -432,6 +439,8 @@ if __name__ == "__main__":
 						" GB free")
 					display_write(str(round(100-fs_fullpercent*100,2)) +
 						" % full", x=3, y=1, clear=0)
+				if MainMenu.CurrentItem == '2.3':
+					sysmon.start()
 
 		if recording:
 			recording_screen(rec_stream.get_recordingtime())
