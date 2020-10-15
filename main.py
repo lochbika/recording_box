@@ -14,12 +14,19 @@ import LCDmenu
 import pyaudio
 import wave
 import struct
-import AudioIO
 from datetime import datetime
-import system_monitor as smon
+import configparser as cfp
+
+# custom modules
+import AudioIO
+import display_helper as dsphlp
 
 # some important paths
 basepath = os.getcwd()
+
+# base configuration
+config = cfp.ConfigParser()
+config.read(basepath + "config/default.cfg")
 
 # LEDs
 record_ledpin = 24
@@ -27,12 +34,6 @@ record_led = LED(record_ledpin)
 
 # LCD
 lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4)
-
-def display_write(message=" ", x=0, y=0, clear=1):
-	if clear == 1:
-		lcd.clear()
-	lcd.cursor_pos = (y, x)
-	lcd.write_string(message)
 
 def exit():
 	lcd.clear()
@@ -48,7 +49,7 @@ shutdown_timer = 0
 shutdown_bit = False
 
 # audio I/O related variables
-input_device = 1
+input_device = 0
 input_rate = 48000
 input_channels = 1
 
@@ -102,8 +103,7 @@ Menu_labels = { "0":"List Recordings",
 		"2":"System Info",
 			"2.0":"CPU Usage",
 			"2.1":"CPU Temp",
-			"2.2":"Storage",
-			"2.3":"System monitor"}
+			"2.2":"Storage"}
 
 MainMenu = LCDmenu.LCDmenu(Menu_labels)
 
@@ -111,17 +111,17 @@ counter = 0
 counter_max = 0
 
 def standard_screen():
-	display_write("====== READY! ======")
-	display_write("Record, Play or Menu",y=1,clear=0)
+	dsphlp.dspwrite(lcd, "====== READY! ======")
+	dsphlp.dspwrite(lcd, "Record, Play or Menu",y=1,clear=0)
 
 def recording_screen(t="00:00"):
 	if t != None:
 		if t == "00:00" or t == "00:01":
-			display_write("== RECORDING! ==")
-			display_write("Length: " + t,y=1,clear=0)
+			dsphlp.dspwrite(lcd, "==== RECORDING! ====")
+			dsphlp.dspwrite(lcd, "Length: " + t,y=1,clear=0)
 			time.sleep(0.5)
 		else:
-			display_write(t,x=8,y=1,clear=0)
+			dsphlp.dspwrite(lcd, t,x=8,y=1,clear=0)
 
 # this function handles all button presses
 def button_handler(record,play,loop,enter):
@@ -212,7 +212,7 @@ def startup():
 	global reclist
 	global input_devices
 	# welcoe message ;)
-	display_write("===== WELCOME! =====")
+	dsphlp.dspwrite(lcd, "===== WELCOME! =====")
 	# get the list of existing recordings and update the menu with it
 	reclist = get_recordingsList(basepath + "/recordings/")
 	MainMenu.replaceLevelItemList("0.",reclist[0])
@@ -306,7 +306,7 @@ def audioplayer(file, action):
 		if active:
 			ctime = getPlayTime(playID[0])[0]
 			#print(ctime)
-			#display_write(str(ctime),y=1,clear=0)
+			#dsphlp.dspwrite(lcd, str(ctime),y=1,clear=0)
 			if loopA != 0 and loopB != 0:
 				if playID[0].tell() > loopB:
 					playID[0].setpos(loopA)
@@ -333,7 +333,7 @@ player = threading.Thread(target=audioplayer, args = (player_file, player_action
 player.start()
 
 # setup the system monitor thread
-sysmon = threading.Thread(target=smon.sysmonitor)
+#sysmon = threading.Thread(target=smon.sysmonitor)
 #sysmon = smon.sysmonitor()
 
 # main program
@@ -356,13 +356,13 @@ if __name__ == "__main__":
 					MainMenu.setNextItem()
 				elif item == 1:
 					MainMenu.setPrevItem()
-				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
+				dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
 
 		# check the buttons thread for new input
 		while len(record) > 0:
 			item = record.popleft()
 			if item is 0 and idle:
-				display_write("== RECORDING! ==...")
+				dsphlp.dspwrite(lcd, "==== RECORDING! ====")
 				idle = False
 				recording = True
 				rec = AudioIO.Recorder(channels=input_channels, rate=input_rate, device=input_device)
@@ -397,12 +397,12 @@ if __name__ == "__main__":
 					menu = False
 				else:
 					MainMenu.levelAscent()
-					display_write(MainMenu.AllItems[MainMenu.CurrentItem])
+					dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
 			elif item is 0 and idle:
 				shutdown_bit = True
 				start_time = time.time()
 				shutdown_timer = time.time() - start_time
-				display_write("Shutdown in:")
+				dsphlp.dspwrite(lcd, "Shutdown in:")
 			elif item is 1 and idle and shutdown_timer > 0:
 				shutdown_bit = False
 				shutdown_timer = 0
@@ -419,25 +419,25 @@ if __name__ == "__main__":
 			if item is 0 and idle:
 				idle = False
 				menu = True
-				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
+				dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
 			elif item is 0 and menu and not MainMenu.currentItemIsAction():
 				MainMenu.levelDescent()
-				display_write(MainMenu.AllItems[MainMenu.CurrentItem])
+				dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
 			elif looping:
 				player_action.append("quitLoop")
 				looping = False
 			elif item is 0 and menu and MainMenu.currentItemIsAction():
 				if MainMenu.CurrentItem == '2.1':
-					display_write("Temperature:")
-					display_write(str(round(CPUTemperature().temperature))+" degC",x=5,y=1,clear=0)
+					dsphlp.dspwrite(lcd, "Temperature:")
+					dsphlp.dspwrite(lcd, str(round(CPUTemperature().temperature))+" degC",x=5,y=1,clear=0)
 				if MainMenu.CurrentItem == '2.2':
 					statvfs = os.statvfs(basepath)
 					fs_free = (statvfs.f_frsize * statvfs.f_bavail)/1000000000
 					fs_fullpercent = fs_free/((statvfs.f_frsize * statvfs.f_blocks)/1000000000)
-					display_write("FS: " +
+					dsphlp.dspwrite(lcd, "FS: " +
 						str(round(fs_free,2)) +
 						" GB free")
-					display_write(str(round(100-fs_fullpercent*100,2)) +
+					dsphlp.dspwrite(lcd, str(round(100-fs_fullpercent*100,2)) +
 						" % full", x=3, y=1, clear=0)
 				if MainMenu.CurrentItem == '2.3':
 					sysmon.start()
@@ -448,7 +448,7 @@ if __name__ == "__main__":
 		# special section for the shutdown timer
 		if shutdown_bit:
 			shutdown_timer = time.time() - start_time
-			display_write(str(5 - round(shutdown_timer)) + " seconds",x=2,y=1,clear=0)
+			dsphlp.dspwrite(lcd, str(5 - round(shutdown_timer)) + " seconds",x=2,y=1,clear=0)
 			if shutdown_timer > 5:
 				os.system("sudo shutdown -h now")
 			time.sleep(0.05)

@@ -32,4 +32,4 @@ def sysmonitor():
 		print(mon.getCPUtemp())
 		print(mon.getStorageFree())
 		print(mon.getStorageTotal())
-		time.sleep(0.5)
+		time.sleep(1)
