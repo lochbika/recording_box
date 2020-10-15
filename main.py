@@ -26,7 +26,16 @@ basepath = os.getcwd()
 
 # base configuration
 config = cfp.ConfigParser()
-config.read(basepath + "config/default.cfg")
+config.read(basepath + "/config/default.cfg")
+
+# audio I/O related variables
+input_device = AudioIO.get_deviceid_byname(config['AUDIO_INPUT']['name'])
+input_rate = 48000
+input_channels = 1
+
+output_device = AudioIO.get_deviceid_byname(config['AUDIO_OUTPUT']['name'])
+output_rate = 44100
+output_channels = 2
 
 # LEDs
 record_ledpin = 24
@@ -34,10 +43,6 @@ record_led = LED(record_ledpin)
 
 # LCD
 lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4)
-
-def exit():
-	lcd.clear()
-	lcd.write_string('Bye Bye')
 
 # status variables for the differenct functionalities
 recording = False
@@ -47,15 +52,6 @@ idle = True
 menu = False
 shutdown_timer = 0
 shutdown_bit = False
-
-# audio I/O related variables
-input_device = 0
-input_rate = 48000
-input_channels = 1
-
-output_device = 0
-output_rate = 44100
-output_channels = 2
 
 # get menu items for audio input
 def get_audioInputList():

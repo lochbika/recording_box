@@ -91,3 +91,12 @@ class RecordingFile(object):
 		wavefile.setsampwidth(self._pa.get_sample_size(pyaudio.paInt16))
 		wavefile.setframerate(self.rate)
 		return wavefile
+
+def get_deviceid_byname(name):
+	p = pyaudio.PyAudio()
+	for i in range(p.get_device_count()):
+		if p.get_device_info_by_index(i).get('name') == name:
+			return(i)
+			break
+		else:
+			return(None)
