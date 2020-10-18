@@ -2,6 +2,7 @@ import pyaudio
 import wave
 import time
 from math import floor
+import numpy as np
 
 class Recorder(object):
 	'''A recorder class for recording audio to a WAV file.
@@ -91,6 +92,69 @@ class RecordingFile(object):
 		wavefile.setsampwidth(self._pa.get_sample_size(pyaudio.paInt16))
 		wavefile.setframerate(self.rate)
 		return wavefile
+
+class InputLeveller(object):
+	'''A recorder class for recording audio to a WAV file.
+	Records in mono by default.
+	'''
+
+	def __init__(self, channels=1, rate=48000, frames_per_buffer=1048, device = 0):
+		self.channels = channels
+		self.rate = rate
+		self.frames_per_buffer = frames_per_buffer
+		self.device = device
+
+	def open(self):
+		return InputLevel(self.channels, self.rate,
+					self.frames_per_buffer,self.device)
+
+class InputLevel(object):
+	def __init__(self, channels,
+		rate, frames_per_buffer, device):
+		self.channels = channels
+		self.rate = rate
+		self.frames_per_buffer = frames_per_buffer
+		self._pa = pyaudio.PyAudio()
+		self._stream = None
+		self.device = device
+		self.starttime = time.time()
+		self.lasttimecheck = time.time()
+		self.level = 0.0
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, exception, value, traceback):
+		self.close()
+
+	def start_recording(self):
+		# Use a stream with a callback in non-blocking mode
+		self._stream = self._pa.open(format=pyaudio.paFloat32,
+			channels=self.channels,
+			rate=self.rate,
+			input=True,
+			input_device_index=self.device,
+			frames_per_buffer=self.frames_per_buffer,
+			stream_callback=self.get_callback())
+		self._stream.start_stream()
+		return self
+
+	def stop_recording(self):
+		self._stream.stop_stream()
+		return self
+
+	def get_callback(self):
+		def callback(in_data, frame_count, time_info, status):
+			self.level = np.mean(np.absolute(np.fromstring(in_data, dtype=np.float32)))
+			return(in_data, pyaudio.paContinue)
+		return callback
+		
+	def get_level(self):
+		return(self.level)
+
+	def close(self):
+		self._stream.close()
+		self._pa.terminate()
 
 def get_deviceid_byname(name):
 	p = pyaudio.PyAudio()

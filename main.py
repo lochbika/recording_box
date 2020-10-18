@@ -219,7 +219,7 @@ def startup():
 	output_devices = get_audioOutputList()
 	MainMenu.replaceLevelItemList("1.2.",output_devices[1])
 	# save the filenames
-	time.sleep(2)
+	time.sleep(1)
 	standard_screen()
 
 # audio related stuff
@@ -423,6 +423,7 @@ if __name__ == "__main__":
 				player_action.append("quitLoop")
 				looping = False
 			elif item is 0 and menu and MainMenu.currentItemIsAction():
+				# system monitor
 				if MainMenu.CurrentItem == '2.1':
 					dsphlp.dspwrite(lcd, "Temperature:")
 					dsphlp.dspwrite(lcd, str(round(CPUTemperature().temperature))+" degC",x=5,y=1,clear=0)
@@ -437,7 +438,15 @@ if __name__ == "__main__":
 						" % full", x=3, y=1, clear=0)
 				if MainMenu.CurrentItem == '2.3':
 					sysmon.start()
-
+				# input level
+				if MainMenu.CurrentItem == '1.1':
+					rec = AudioIO.InputLeveller(channels=1, rate=48000, device=0)
+					rec_stream = rec.open()
+					rec_stream.start_recording()
+					while True:
+						time.sleep(0.1)
+						dsphlp.dspwrite(lcd,'#'*round(rec_stream.get_level()*20,0).astype(int),x=0,y=1)
+		
 		if recording:
 			recording_screen(rec_stream.get_recordingtime())
 
