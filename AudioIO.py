@@ -93,6 +93,76 @@ class RecordingFile(object):
 		wavefile.setframerate(self.rate)
 		return wavefile
 
+class Player(object):
+	'''A player class for playing a WAV file.
+	'''
+
+	def __init__(self, channels=2, rate=44100, frames_per_buffer=1048, device = 0):
+		self.channels = channels
+		self.rate = rate
+		self.frames_per_buffer = frames_per_buffer
+		self.device = device
+
+	def open(self, fname, mode='rb'):
+		return PlayingFile(fname, mode, self.channels, self.rate,
+		                    self.frames_per_buffer,self.device)
+
+class PlayingFile(object):
+	def __init__(self, fname, mode, channels,
+		rate, frames_per_buffer, device):
+		self.fname = fname
+		self.mode = mode
+		self.channels = channels
+		self.rate = rate
+		self.frames_per_buffer = frames_per_buffer
+		self._pa = pyaudio.PyAudio()
+		self.wavefile = self._load_file(self.fname, self.mode)
+		self._stream = None
+		self.device = device
+		self.starttime = time.time()
+		self.lasttimecheck = time.time()
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, exception, value, traceback):
+		self.close()
+
+	def get_callback(self):
+		def callback(data, frame_count, time_info, status):
+			data = self.wavefile.readframes(frame_count)
+			return (data, pyaudio.paContinue)
+		return callback
+
+	def start_playing(self):
+		self._stream = self._pa.open(format=self._pa.get_format_from_width(self.wavefile.getsampwidth()),
+		  channels=self.wavefile.getnchannels(),
+		  rate=self.wavefile.getframerate(),
+		  output=True,
+		  stream_callback=self.get_callback())
+		self._stream.start_stream()
+		return(self)
+
+	def toggle(self):
+		if self._stream.is_active():
+			self._stream.stop_stream()
+		else:
+			self._stream.start_stream()
+		return(self)
+
+	def stop_playing(self):
+		self._stream.stop_stream()
+		return(self)
+
+	def close(self):
+		self._stream.close()
+		self._pa.terminate()
+		self.wavefile.close()
+
+	def _load_file(self, fname, mode='rb'):
+		wavefile = wave.open(fname, mode)
+		return wavefile
+
 class InputLeveller(object):
 	'''A recorder class for recording audio to a WAV file.
 	Records in mono by default.
@@ -129,7 +199,7 @@ class InputLevel(object):
 
 	def start_recording(self):
 		# Use a stream with a callback in non-blocking mode
-		self._stream = self._pa.open(format=pyaudio.paFloat32,
+		self._stream = self._pa.open(format=pyaudio.paInt16,
 			channels=self.channels,
 			rate=self.rate,
 			input=True,
@@ -145,10 +215,10 @@ class InputLevel(object):
 
 	def get_callback(self):
 		def callback(in_data, frame_count, time_info, status):
-			self.level = np.mean(np.absolute(np.fromstring(in_data, dtype=np.float32)))
+			self.level = np.amax(np.absolute(np.fromstring(in_data, dtype=np.int16)))/32768
 			return(in_data, pyaudio.paContinue)
 		return callback
-		
+
 	def get_level(self):
 		return(self.level)
 

@@ -20,6 +20,7 @@ import configparser as cfp
 # custom modules
 import AudioIO
 import display_helper as dsphlp
+import gbapps
 
 # some important paths
 basepath = os.getcwd()
@@ -222,93 +223,6 @@ def startup():
 	time.sleep(1)
 	standard_screen()
 
-# audio related stuff
-def audioplayer(file, action):
-
-	loopA = 0
-	loopB = 0
-	active = False
-	ctime = 0.0
-
-	def startPlay(filename):
-		wf = wave.open(filename, 'rb')
-
-		# instantiate PyAudio (1)
-		p = pyaudio.PyAudio()
-
-		# define callback (2)
-		def callback(in_data, frame_count, time_info, status_flags):
-			data = wf.readframes(frame_count)
-			return (data, pyaudio.paContinue)
-
-		# open stream using callback (3)
-		stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
-				channels=wf.getnchannels(),
-				rate=wf.getframerate(),
-				output=True,
-				stream_callback=callback)
-
-		# start the stream (4)
-		stream.start_stream()
-
-		# return handlers
-		return(wf, p, stream)
-
-	def togglePause(stream_id):
-		if stream_id.is_active():
-			stream_id.stop_stream()
-		else:
-			stream_id.start_stream()
-
-	def stopPlay(stream_id, wf_id, p_id):
-		stream_id.stop_stream()
-		stream_id.close()
-		wf_id.close()
-		p_id.terminate()
-
-	def getPlayTime(wf_id):
-		nframes = wf_id.getnframes()
-		cframe = wf_id.tell()
-		rate = wf_id.getframerate()
-		return(round(cframe/rate,1),round(nframes/rate,1))
-
-	while True:
-		# read for communication with main thread
-		while len(player_file) > 0:
-			item = player_file.popleft()
-			playID = startPlay(item)
-			active = True
-
-		while len(player_action) > 0:
-			item = action.popleft()
-			if item == "toggle" and active:
-				togglePause(playID[2])
-			if item == "stop" and active:
-				stopPlay(playID[2],playID[0],playID[1])
-				del playID
-				loopA = 0
-				loopB = 0
-				active = False
-				time.sleep(0.1)
-			if item == "startLoop" and active:
-				loopA = playID[0].tell()
-			if item == "stopLoop" and active:
-				loopB = playID[0].tell()
-			if item == "quitLoop" and active:
-				print("message received")
-				loopA = 0
-				loopB = 0
-
-		if active:
-			ctime = getPlayTime(playID[0])[0]
-			#print(ctime)
-			#dsphlp.dspwrite(lcd, str(ctime),y=1,clear=0)
-			if loopA != 0 and loopB != 0:
-				if playID[0].tell() > loopB:
-					playID[0].setpos(loopA)
-
-		time.sleep(0.05)
-
 # setup and start the rotary switch daemon
 rot = deque([0,0,0,0,0],5)
 rotary = threading.Thread(target=rotary_status, args = (rot, ), daemon = True)
@@ -322,16 +236,6 @@ enter = deque([0],1)
 buttons = threading.Thread(target=button_handler, args = (record,play,loop,enter, ), daemon = True)
 buttons.start()
 
-# setup communicator with wave playing thread
-player_file = deque([],1)
-player_action = deque([],3)
-player = threading.Thread(target=audioplayer, args = (player_file, player_action, ), daemon = True)
-player.start()
-
-# setup the system monitor thread
-#sysmon = threading.Thread(target=smon.sysmonitor)
-#sysmon = smon.sysmonitor()
-
 # main program
 if __name__ == "__main__":
 	# call the startup routine and then move on to the main part
@@ -342,11 +246,11 @@ if __name__ == "__main__":
 			item = rot.popleft()
 			if menu:
 				if looping:
-					print("message sent")
-					player_action.append("quitLoop")
+					print("looper action - implement this!")
 					looping = False
 				if playing:
-					player_action.append("stop")
+					player_stream.stop_playing()
+					player_stream.close()
 					playing = False
 				if item == -1:
 					MainMenu.setNextItem()
@@ -380,10 +284,12 @@ if __name__ == "__main__":
 			item = play.popleft()
 			if item is 0 and menu and MainMenu.CurrentItem.startswith("0.") and not playing:
 				selectedrecording = int(MainMenu.CurrentItem.split(".")[MainMenu.CurrentLevel])
-				player_file.append(reclist[1][selectedrecording])
+				player = AudioIO.Player(channels=output_channels, rate=output_rate, device=output_device)
+				player_stream = player.open(reclist[1][selectedrecording])
+				player_stream.start_playing()
 				playing = True
 			elif playing:
-				player_action.append("toggle")
+				player_stream.toggle()
 		while len(loop) > 0:
 			item = loop.popleft()
 			if item is 0 and menu and not playing:
@@ -405,10 +311,10 @@ if __name__ == "__main__":
 				standard_screen()
 			# handle the initiation and termination of a playing loop
 			elif item is 0 and playing and not looping:
-				player_action.append("startLoop")
+				print("startLoop - implement this!")
 				looping = True
 			elif item is 0 and playing and looping:
-				player_action.append("stopLoop")
+				print("stopLoop - implement this")
 
 		while len(enter) > 0:
 			item = enter.popleft()
@@ -420,7 +326,7 @@ if __name__ == "__main__":
 				MainMenu.levelDescent()
 				dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
 			elif looping:
-				player_action.append("quitLoop")
+				print("quitLoop - implement this!")
 				looping = False
 			elif item is 0 and menu and MainMenu.currentItemIsAction():
 				# system monitor
@@ -440,12 +346,15 @@ if __name__ == "__main__":
 					sysmon.start()
 				# input level
 				if MainMenu.CurrentItem == '1.1':
-					rec = AudioIO.InputLeveller(channels=1, rate=48000, device=0)
-					rec_stream = rec.open()
-					rec_stream.start_recording()
-					while True:
-						time.sleep(0.1)
-						dsphlp.dspwrite(lcd,'#'*round(rec_stream.get_level()*20,0).astype(int),x=0,y=1)
+					app = threading.Thread(target=gbapps.app_input_volsetting, args = (lcd, input_device, input_channels, input_rate, loop, ), daemon = False)
+					app.start()
+				# if MainMenu.CurrentItem == '1.1':
+					# rec = AudioIO.InputLeveller(channels=1, rate=48000, device=0)
+					# rec_stream = rec.open()
+					# rec_stream.start_recording()
+					# while True:
+						# time.sleep(0.2)
+						# dsphlp.dspwrite(lcd,'#'*round(rec_stream.get_level()*20,0).astype(int),x=0,y=1)
 		
 		if recording:
 			recording_screen(rec_stream.get_recordingtime())
