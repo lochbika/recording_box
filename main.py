@@ -54,39 +54,6 @@ menu = False
 shutdown_timer = 0
 shutdown_bit = False
 
-# get menu items for audio input
-def get_audioInputList():
-	indices = []
-	names = []
-	p = pyaudio.PyAudio()
-	for i in range(p.get_device_count()):
-		if p.get_device_info_by_index(i).get('maxInputChannels') > 0:
-			indices.append(i)
-			dev_name = p.get_device_info_by_index(i).get('name')
-			if len(dev_name) > 16:
-				dev_name = dev_name[:14] + ".."
-			names.append(dev_name)
-	input_list = [indices,names]
-	p.terminate()
-	return(input_list)
-
-def get_audioOutputList():
-	indices = []
-	names = []
-	p = pyaudio.PyAudio()
-	for i in range(p.get_device_count()):
-		if p.get_device_info_by_index(i).get('maxOutputChannels') > 0:
-			indices.append(i)
-			dev_name = p.get_device_info_by_index(i).get('name')
-			if len(dev_name) > 16:
-				dev_name = dev_name[:14] + ".."
-			names.append(dev_name)
-	output_list = [indices,names]
-	p.terminate()
-	return(output_list)
-
-
-
 # Define the main menu
 Menu_labels = { "0":"List Recordings",
 			"0.0":"Test.wav",
@@ -214,10 +181,10 @@ def startup():
 	reclist = get_recordingsList(basepath + "/recordings/")
 	MainMenu.replaceLevelItemList("0.",reclist[0])
 	# get input devices and put into menu
-	input_devices = get_audioInputList()
+	input_devices = AudioIO.get_audioInputList()
 	MainMenu.replaceLevelItemList("1.0.",input_devices[1])
 	# get output devices and put into menu
-	output_devices = get_audioOutputList()
+	output_devices = AudioIO.get_audioOutputList()
 	MainMenu.replaceLevelItemList("1.2.",output_devices[1])
 	# save the filenames
 	time.sleep(1)
@@ -251,6 +218,7 @@ if __name__ == "__main__":
 				if playing:
 					player_stream.stop_playing()
 					player_stream.close()
+					play_screen.close()
 					playing = False
 				if item == -1:
 					MainMenu.setNextItem()
@@ -287,6 +255,7 @@ if __name__ == "__main__":
 				player = AudioIO.Player(channels=output_channels, rate=output_rate, device=output_device)
 				player_stream = player.open(reclist[1][selectedrecording])
 				player_stream.start_playing()
+				play_screen = dsphlp.display_screen(lcd)
 				playing = True
 			elif playing:
 				player_stream.toggle()
@@ -355,7 +324,6 @@ if __name__ == "__main__":
 					# while True:
 						# time.sleep(0.2)
 						# dsphlp.dspwrite(lcd,'#'*round(rec_stream.get_level()*20,0).astype(int),x=0,y=1)
-		
 		if recording:
 			recording_screen(rec_stream.get_recordingtime())
 
@@ -367,8 +335,10 @@ if __name__ == "__main__":
 				os.system("sudo shutdown -h now")
 			time.sleep(0.05)
 
+		if playing:
+			play_screen.draw_screen(player_stream.get_pos_formatted())
+			#dsphlp.dspwrite(lcd, player_stream.get_pos_formatted())
+			#time.sleep(0.2)
+
 		# some delay to reduce CPU
 		time.sleep(0.01)
-
-
-

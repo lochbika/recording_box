@@ -154,6 +154,29 @@ class PlayingFile(object):
 		self._stream.stop_stream()
 		return(self)
 
+	def get_pos_raw(self):
+		return(self.wavefile.tell())
+
+	def get_pos_formatted(self):
+		position = self.wavefile.tell()
+		length = self.wavefile.getnframes()
+		framerate = self.wavefile.getframerate()
+		nchannels = self.wavefile.getnchannels()
+		dur_seconds = position / ( float(framerate) * nchannels )
+		dur_minutes = floor(dur_seconds / 60)
+		dur_seconds = int(dur_seconds % 60)
+		if dur_seconds < 10:
+			dur_seconds = "0" + str(dur_seconds)
+		else:
+			dur_seconds = str(dur_seconds)
+
+		if dur_minutes < 10:
+			dur_minutes = "0" + str(dur_minutes)
+		else:
+			dur_minutes = str(dur_minutes)
+
+		return(dur_minutes + ":"  + dur_seconds)
+
 	def close(self):
 		self._stream.close()
 		self._pa.terminate()
@@ -234,3 +257,33 @@ def get_deviceid_byname(name):
 			break
 		else:
 			return(None)
+
+def get_audioInputList():
+	indices = []
+	names = []
+	p = pyaudio.PyAudio()
+	for i in range(p.get_device_count()):
+		if p.get_device_info_by_index(i).get('maxInputChannels') > 0:
+			indices.append(i)
+			dev_name = p.get_device_info_by_index(i).get('name')
+			if len(dev_name) > 16:
+				dev_name = dev_name[:14] + ".."
+			names.append(dev_name)
+	input_list = [indices,names]
+	p.terminate()
+	return(input_list)
+
+def get_audioOutputList():
+	indices = []
+	names = []
+	p = pyaudio.PyAudio()
+	for i in range(p.get_device_count()):
+		if p.get_device_info_by_index(i).get('maxOutputChannels') > 0:
+			indices.append(i)
+			dev_name = p.get_device_info_by_index(i).get('name')
+			if len(dev_name) > 16:
+				dev_name = dev_name[:14] + ".."
+			names.append(dev_name)
+	output_list = [indices,names]
+	p.terminate()
+	return(output_list)
