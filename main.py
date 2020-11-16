@@ -16,6 +16,7 @@ import wave
 import struct
 from datetime import datetime
 import configparser as cfp
+import math
 
 # custom modules
 import AudioIO
@@ -55,6 +56,75 @@ shutdown_timer = 0
 shutdown_bit = False
 loopA = None
 loopB = None
+
+# custom characters
+progress20prc1 = (
+0b10000,
+0b10000,
+0b10000,
+0b11111,
+0b10000,
+0b10000,
+0b10000,
+0b00000
+)
+progress20prc2 = (
+0b01000,
+0b01000,
+0b01000,
+0b11111,
+0b01000,
+0b01000,
+0b01000,
+0b00000
+)
+progress20prc3 = (
+0b00100,
+0b00100,
+0b00100,
+0b11111,
+0b00100,
+0b00100,
+0b00100,
+0b00000
+)
+progress20prc4 = (
+0b00010,
+0b00010,
+0b00010,
+0b11111,
+0b00010,
+0b00010,
+0b00010,
+0b00000
+)
+progress20prc5 = (
+0b00001,
+0b00001,
+0b00001,
+0b11111,
+0b00001,
+0b00001,
+0b00001,
+0b00000
+)
+chrpause = (
+0b01010,
+0b01010,
+0b01010,
+0b01010,
+0b01010,
+0b01010,
+0b01010,
+0b01010
+)
+
+lcd.create_char(0, progress20prc1)
+lcd.create_char(1, progress20prc2)
+lcd.create_char(2, progress20prc3)
+lcd.create_char(3, progress20prc4)
+lcd.create_char(4, progress20prc5)
+lcd.create_char(5, chrpause)
 
 # Define the main menu
 Menu_labels = { "0":"List Recordings",
@@ -346,16 +416,26 @@ if __name__ == "__main__":
 				os.system("sudo shutdown -h now")
 			time.sleep(0.05)
 
+		# This is the player screen
 		if playing:
 			if looping and loopA != None and loopB != None and player_stream.get_pos_raw() > loopB:
 				player_stream.set_pos_raw(loopA)
 			if player_stream.is_active():
 				playstatusicon = ">"
 			else:
-				playstatusicon = "|"
-			progress_bar_left  = "-" * int(round(player_stream.get_pos_prc()*9.0))
-			progress_bar_right = "-" * int(round((1-player_stream.get_pos_prc())*9.0))
-			progress_bar = progress_bar_left + "+" + progress_bar_right
+				playstatusicon = chr(5)
+			cpos = player_stream.get_pos_prc()
+			progress_bar = ["-","-","-","-","-","-","-","-","-","-"]
+			if cpos <= 0.50:
+				progress_position = int(math.floor(cpos*9.0))
+			else:
+				progress_position = int(math.ceil(cpos*9.0))
+			if cpos < 1.0:
+				progress_fraction = int(round( ((cpos*9.0) % 1.0) * 4.0 ))
+			else:
+				progress_fraction = 4
+			progress_bar[progress_position] = chr(progress_fraction)
+			progress_bar = "".join(progress_bar)
 			if loopA == None:
 				loopA_text = "Loop A: not set     "
 			else:
@@ -371,4 +451,4 @@ if __name__ == "__main__":
 			play_screen.draw_screen(play_screen_text)
 
 		# some delay to reduce CPU
-		time.sleep(0.01)
+		time.sleep(0.001)

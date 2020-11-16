@@ -26,7 +26,7 @@ class display_screen(object):
 
 	def draw_screen(self,text):
 		if text != self.oldtext:
-			self._lcdwrite(text)
+			self._lcdwrite(text, clear=0)
 			self.oldtext = text
 		return
 

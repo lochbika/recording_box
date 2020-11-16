@@ -180,7 +180,7 @@ class PlayingFile(object):
 		return(self.wavefile.tell())
 
 	def get_pos_prc(self):
-		return(self.wavefile.tell()/self.wavefile.getnframes())
+		return(float(self.wavefile.tell())/float(self.wavefile.getnframes()))
 
 	def get_pos_formatted(self, position=None):
 		if position == None:
