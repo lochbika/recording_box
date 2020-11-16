@@ -150,15 +150,41 @@ class PlayingFile(object):
 			self._stream.start_stream()
 		return(self)
 
+	def is_active(self):
+		return(self._stream.is_active())
+
 	def stop_playing(self):
 		self._stream.stop_stream()
 		return(self)
 
+	def get_length_formatted(self):
+		length = self.wavefile.getnframes()
+		framerate = self.wavefile.getframerate()
+		nchannels = self.wavefile.getnchannels()
+		dur_seconds = length / ( float(framerate) * nchannels )
+		dur_minutes = floor(dur_seconds / 60)
+		dur_seconds = int(dur_seconds % 60)
+		if dur_seconds < 10:
+			dur_seconds = "0" + str(dur_seconds)
+		else:
+			dur_seconds = str(dur_seconds)
+
+		if dur_minutes < 10:
+			dur_minutes = "0" + str(dur_minutes)
+		else:
+			dur_minutes = str(dur_minutes)
+
+		return(dur_minutes + ":"  + dur_seconds)
+
 	def get_pos_raw(self):
 		return(self.wavefile.tell())
 
-	def get_pos_formatted(self):
-		position = self.wavefile.tell()
+	def get_pos_prc(self):
+		return(self.wavefile.tell()/self.wavefile.getnframes())
+
+	def get_pos_formatted(self, position=None):
+		if position == None:
+			position = self.wavefile.tell()
 		length = self.wavefile.getnframes()
 		framerate = self.wavefile.getframerate()
 		nchannels = self.wavefile.getnchannels()
@@ -176,6 +202,23 @@ class PlayingFile(object):
 			dur_minutes = str(dur_minutes)
 
 		return(dur_minutes + ":"  + dur_seconds)
+
+	def set_pos_raw(self, position):
+		self.wavefile.setpos(position)
+		return
+
+	def set_pos_skip(self, t):
+		position = self.wavefile.tell()
+		length = self.wavefile.getnframes()
+		framerate = self.wavefile.getframerate()
+		nchannels = self.wavefile.getnchannels()
+		position += int(t * ( float(framerate) * nchannels ))
+		if position > length:
+			position = length
+		elif position < 0:
+			position = 0
+		self.wavefile.setpos(position)
+		return
 
 	def close(self):
 		self._stream.close()

@@ -43,7 +43,7 @@ record_ledpin = 24
 record_led = LED(record_ledpin)
 
 # LCD
-lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4)
+lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4, charmap='A02')
 
 # status variables for the differenct functionalities
 recording = False
@@ -53,6 +53,8 @@ idle = True
 menu = False
 shutdown_timer = 0
 shutdown_bit = False
+loopA = None
+loopB = None
 
 # Define the main menu
 Menu_labels = { "0":"List Recordings",
@@ -212,15 +214,20 @@ if __name__ == "__main__":
 		while len(rot) > 0:
 			item = rot.popleft()
 			if menu:
-				if looping:
-					print("looper action - implement this!")
-					looping = False
 				if playing:
-					player_stream.stop_playing()
-					player_stream.close()
-					play_screen.close()
-					playing = False
-				if item == -1:
+					if player_stream.is_active():
+						player_stream.set_pos_skip(item * -5)
+					else:
+						player_stream.stop_playing()
+						player_stream.close()
+						play_screen.close()
+						playing = False
+						if looping:
+							print("looper action - implement this!")
+							loopA = None
+							loopB = None
+							looping = False
+				elif item == -1:
 					MainMenu.setNextItem()
 				elif item == 1:
 					MainMenu.setPrevItem()
@@ -281,9 +288,11 @@ if __name__ == "__main__":
 			# handle the initiation and termination of a playing loop
 			elif item is 0 and playing and not looping:
 				print("startLoop - implement this!")
+				loopA = player_stream.get_pos_raw()
 				looping = True
 			elif item is 0 and playing and looping:
 				print("stopLoop - implement this")
+				loopB = player_stream.get_pos_raw()
 
 		while len(enter) > 0:
 			item = enter.popleft()
@@ -296,6 +305,8 @@ if __name__ == "__main__":
 				dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
 			elif looping:
 				print("quitLoop - implement this!")
+				loopA = None
+				loopB = None
 				looping = False
 			elif item is 0 and menu and MainMenu.currentItemIsAction():
 				# system monitor
@@ -336,9 +347,28 @@ if __name__ == "__main__":
 			time.sleep(0.05)
 
 		if playing:
-			play_screen.draw_screen(player_stream.get_pos_formatted())
-			#dsphlp.dspwrite(lcd, player_stream.get_pos_formatted())
-			#time.sleep(0.2)
+			if looping and loopA != None and loopB != None and player_stream.get_pos_raw() > loopB:
+				player_stream.set_pos_raw(loopA)
+			if player_stream.is_active():
+				playstatusicon = ">"
+			else:
+				playstatusicon = "|"
+			progress_bar_left  = "-" * int(round(player_stream.get_pos_prc()*9.0))
+			progress_bar_right = "-" * int(round((1-player_stream.get_pos_prc())*9.0))
+			progress_bar = progress_bar_left + "+" + progress_bar_right
+			if loopA == None:
+				loopA_text = "Loop A: not set     "
+			else:
+				loopA_text = "Loop A: " + player_stream.get_pos_formatted(loopA) + "       "
+			if loopB == None:
+				loopB_text = "Loop B: not set     "
+			else:
+				loopB_text = "Loop B: " + player_stream.get_pos_formatted(loopB) + "       "
+			play_screen_text = playstatusicon + MainMenu.AllItems[MainMenu.CurrentItem] + " "*(19 - len(MainMenu.AllItems[MainMenu.CurrentItem])) \
+				+ loopA_text \
+				+ loopB_text \
+				+ player_stream.get_pos_formatted() + progress_bar + player_stream.get_length_formatted()
+			play_screen.draw_screen(play_screen_text)
 
 		# some delay to reduce CPU
 		time.sleep(0.01)
