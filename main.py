@@ -150,15 +150,6 @@ def standard_screen():
 	dsphlp.dspwrite(lcd, "====== READY! ======")
 	dsphlp.dspwrite(lcd, "Record, Play or Menu",y=1,clear=0)
 
-def recording_screen(t="00:00"):
-	if t != None:
-		if t == "00:00" or t == "00:01":
-			dsphlp.dspwrite(lcd, "==== RECORDING! ====")
-			dsphlp.dspwrite(lcd, "Length: " + t,y=1,clear=0)
-			time.sleep(0.5)
-		else:
-			dsphlp.dspwrite(lcd, t,x=8,y=1,clear=0)
-
 # this function handles all button presses
 def button_handler(record,play,loop,enter):
 	# the current states of all buttons
@@ -307,13 +298,15 @@ if __name__ == "__main__":
 		while len(record) > 0:
 			item = record.popleft()
 			if item is 0 and idle:
-				dsphlp.dspwrite(lcd, "==== RECORDING! ====")
+				#dsphlp.dspwrite(lcd, "==== RECORDING! ====")
 				idle = False
 				recording = True
 				rec = AudioIO.Recorder(channels=input_channels, rate=input_rate, device=input_device)
 				rec_stream = rec.open(fname = basepath + "/recordings/" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".wav")
 				rec_stream.start_recording()
 				record_led.blink()
+				dsphlp.dspwrite(lcd,clear=1)
+				rec_screen = dsphlp.display_screen(lcd)
 			if item is 1 and recording:
 				print("Button RECORD released",item)
 				idle = True
@@ -405,8 +398,16 @@ if __name__ == "__main__":
 					# while True:
 						# time.sleep(0.2)
 						# dsphlp.dspwrite(lcd,'#'*round(rec_stream.get_level()*20,0).astype(int),x=0,y=1)
+		# This is the recording screen
 		if recording:
-			recording_screen(rec_stream.get_recordingtime())
+			rec_level = int(round(rec_stream.get_recLevel()*20,0))
+			rec_level_bar = '#'*rec_level + ' '*(20-rec_level)
+			rec_time = "Time elapsed:  " + rec_stream.get_recordingtime()
+			rec_screen_text = "==== RECORDING! ====" \
+				+ rec_time \
+				+ "\n" \
+				+ rec_level_bar
+			rec_screen.draw_screen(rec_screen_text)
 
 		# special section for the shutdown timer
 		if shutdown_bit:
