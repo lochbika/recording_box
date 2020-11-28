@@ -391,6 +391,19 @@ if __name__ == "__main__":
 				if MainMenu.CurrentItem == '1.1':
 					app = threading.Thread(target=gbapps.app_input_volsetting, args = (lcd, input_device, input_channels, input_rate, loop, ), daemon = False)
 					app.start()
+				# setting input device
+				if MainMenu.CurrentItem[:-1] == '1.0.':
+					config['AUDIO_INPUT']['name'] = MainMenu.AllItems[MainMenu.CurrentItem]
+					print(config['AUDIO_INPUT']['name'])
+					config['AUDIO_INPUT']['nchan'] = str(AudioIO.get_device_props(MainMenu.AllItems[MainMenu.CurrentItem])[1])
+					config['AUDIO_INPUT']['srate'] = str(AudioIO.get_device_props(MainMenu.AllItems[MainMenu.CurrentItem])[0])
+					with open(basepath + "/config/default.cfg", 'w') as configfile:
+						config.write(configfile)
+				# setting output device
+				if MainMenu.CurrentItem[:-1] == '1.2.':
+					config['AUDIO_OUTPUT']['name'] = MainMenu.AllItems[MainMenu.CurrentItem]
+					with open(basepath + "/config/default.cfg", 'w') as configfile:
+						config.write(configfile)
 				# if MainMenu.CurrentItem == '1.1':
 					# rec = AudioIO.InputLeveller(channels=1, rate=48000, device=0)
 					# rec_stream = rec.open()
