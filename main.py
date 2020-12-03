@@ -392,8 +392,6 @@ if __name__ == '__main__':
                 # setting input device
                 if MainMenu.CurrentItem[:-1] == '1.0.':
                     config['AUDIO_INPUT']['name'] = MainMenu.AllItems[MainMenu.CurrentItem]
-                    print(config['AUDIO_INPUT']['name'])
-                    print(AudioIO.get_deviceid_byname(str(config['AUDIO_INPUT']['name'])))
                     config['AUDIO_INPUT']['nchan'] = str(AudioIO.get_device_props(
                                                          config['AUDIO_INPUT']['name'])[1])
                     config['AUDIO_INPUT']['srate'] = str(AudioIO.get_device_props(
@@ -404,6 +402,10 @@ if __name__ == '__main__':
                 # setting output device
                 if MainMenu.CurrentItem[:-1] == '1.2.':
                     config['AUDIO_OUTPUT']['name'] = MainMenu.AllItems[MainMenu.CurrentItem]
+                    config['AUDIO_OUTPUT']['nchan'] = str(AudioIO.get_device_props(
+                                                         config['AUDIO_OUTPUT']['name'])[2])
+                    config['AUDIO_OUTPUT']['srate'] = str(AudioIO.get_device_props(
+                                                         config['AUDIO_OUTPUT']['name'])[0])
                     with open(basepath
                               + '/config/default.cfg', 'w') as configfile:
                         config.write(configfile)
