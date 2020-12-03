@@ -310,24 +310,26 @@ def get_deviceid_byname(name):
     p = pyaudio.PyAudio()
     for i in range(p.get_device_count()):
         if p.get_device_info_by_index(i).get('name') == name:
-            return(i)
-            break
-        else:
-            return(None)
-
-
-def get_device_props(name):
-    print('in function ', name)
-    p = pyaudio.PyAudio()
-    for i in range(p.get_device_count()):
-        if p.get_device_info_by_index(i).get('name') == name:
-            return(p.get_device_info_by_index(i).get('defaultSampleRate'),
-                   p.get_device_info_by_index(i).get('maxInputChannels'),
-                   p.get_device_info_by_index(i).get('maxOutputChannels'))
+            result = i
             p.terminate()
             break
         else:
-            return(None)
+            result = None
+    return (result)
+
+
+def get_device_props(name):
+    p = pyaudio.PyAudio()
+    for i in range(p.get_device_count()):
+        if p.get_device_info_by_index(i).get('name') == name:
+            result = (p.get_device_info_by_index(i).get('defaultSampleRate'),
+                      p.get_device_info_by_index(i).get('maxInputChannels'),
+                      p.get_device_info_by_index(i).get('maxOutputChannels'))
+            p.terminate()
+            break
+        else:
+            result = (None, None, None)
+    return result
 
 
 def get_audioInputList():
