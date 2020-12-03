@@ -36,7 +36,7 @@ class RecordingFile(object):
         self.device = device
         self.starttime = time.time()
         self.lasttimecheck = time.time()
-        self.level = 0.0
+        self._level = 0.0
 
     def __enter__(self):
         return self
@@ -63,8 +63,10 @@ class RecordingFile(object):
     def get_callback(self):
         def callback(in_data, frame_count, time_info, status):
             self.wavefile.writeframes(in_data)
-            self.level = np.amax(np.absolute(
-                                 np.fromstring(in_data, dtype=np.int16)))/32768
+            self._level = np.sqrt(
+                          np.mean(np.square(np.fromstring(
+                                  in_data, dtype=np.int16
+                                  ) / 32768)))
             return(in_data, pyaudio.paContinue)
         return callback
 
@@ -85,7 +87,7 @@ class RecordingFile(object):
         return(rec_time_str)
 
     def get_recLevel(self):
-        return(self.level)
+        return(self._level)
 
     def close(self):
         self._stream.close()
