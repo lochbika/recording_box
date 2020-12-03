@@ -23,7 +23,7 @@ basepath = os.getcwd()
 
 # base configuration
 config = cfp.ConfigParser()
-config.read(basepath + "/config/default.cfg")
+config.read(basepath + '/config/default.cfg')
 
 # audio I/O related variables
 input_device = AudioIO.get_deviceid_byname(config['AUDIO_INPUT']['name'])
@@ -115,19 +115,19 @@ lcd.create_char(4, progress20prc5)
 lcd.create_char(5, chrpause)
 
 # Define the main menu
-Menu_labels = {"0": "List Recordings",
-               "0.0": "Test.wav",
-               "1": "Audio Settings",
-               "1.0": "Sound Input",
-               "1.0.0": "Refresh List",
-               "1.1": "Input Volume",
-               "1.2": "Sound Output",
-               "1.2.0": "Refresh List",
-               "1.3": "Output Volume",
-               "2": "System Info",
-               "2.0": "CPU Usage",
-               "2.1": "CPU Temp",
-               "2.2": "Storage"}
+Menu_labels = {'0': 'List Recordings',
+               '0.0': 'Test.wav',
+               '1': 'Audio Settings',
+               '1.0': 'Sound Input',
+               '1.0.0': 'Refresh List',
+               '1.1': 'Input Volume',
+               '1.2': 'Sound Output',
+               '1.2.0': 'Refresh List',
+               '1.3': 'Output Volume',
+               '2': 'System Info',
+               '2.0': 'CPU Usage',
+               '2.1': 'CPU Temp',
+               '2.2': 'Storage'}
 
 MainMenu = LCDmenu.LCDmenu(Menu_labels)
 
@@ -136,8 +136,8 @@ counter_max = 0
 
 
 def standard_screen():
-    dsphlp.dspwrite(lcd, "====== READY! ======")
-    dsphlp.dspwrite(lcd, "Record, Play or Menu", y=1, clear=0)
+    dsphlp.dspwrite(lcd, '====== READY! ======')
+    dsphlp.dspwrite(lcd, 'Record, Play or Menu', y=1, clear=0)
 
 
 def button_handler(record, play, loop, enter):
@@ -212,7 +212,7 @@ def rotary_status(increment):
 
 
 def get_recordingsList(path):
-    recordings = glob.glob(path + "*.wav")
+    recordings = glob.glob(path + '*.wav')
     if len(recordings) > 0:
         recordings.sort(reverse=True)
         basenames = []
@@ -221,7 +221,7 @@ def get_recordingsList(path):
                              (os.path.basename(recordings[i]))[0])
         recordings = [basenames, recordings]
     else:
-        recordings = [["No recordings"], [""]]
+        recordings = [['No recordings'], ['']]
     return(recordings)
 
 
@@ -229,16 +229,16 @@ def startup():
     global reclist
     global input_devices
     # welcoe message ;)
-    dsphlp.dspwrite(lcd, "===== WELCOME! =====")
+    dsphlp.dspwrite(lcd, '===== WELCOME! =====')
     # get the list of existing recordings and update the menu with it
-    reclist = get_recordingsList(basepath + "/recordings/")
-    MainMenu.replaceLevelItemList("0.", reclist[0])
+    reclist = get_recordingsList(basepath + '/recordings/')
+    MainMenu.replaceLevelItemList('0.', reclist[0])
     # get input devices and put into menu
     input_devices = AudioIO.get_audioInputList()
-    MainMenu.replaceLevelItemList("1.0.", input_devices[1])
+    MainMenu.replaceLevelItemList('1.0.', input_devices[1])
     # get output devices and put into menu
     output_devices = AudioIO.get_audioOutputList()
-    MainMenu.replaceLevelItemList("1.2.", output_devices[1])
+    MainMenu.replaceLevelItemList('1.2.', output_devices[1])
     # save the filenames
     time.sleep(1)
     standard_screen()
@@ -260,7 +260,7 @@ buttons = threading.Thread(target=button_handler,
 buttons.start()
 
 # main program
-if __name__ == "__main__":
+if __name__ == '__main__':
     # call the startup routine and then move on to the main part
     startup()
     while True:
@@ -277,7 +277,7 @@ if __name__ == "__main__":
                         play_screen.close()
                         playing = False
                         if looping:
-                            print("looper action - implement this!")
+                            print('looper action - implement this!')
                             loopA = None
                             loopB = None
                             looping = False
@@ -295,28 +295,28 @@ if __name__ == "__main__":
                 recording = True
                 rec = AudioIO.Recorder(channels=input_channels,
                                        rate=input_rate, device=input_device)
-                rec_stream = rec.open(fname=basepath + "/recordings/"
+                rec_stream = rec.open(fname=basepath + '/recordings/'
                                       + datetime.now().strftime(
-                                      "%Y%m%d_%H%M%S")
-                                      + ".wav")
+                                      '%Y%m%d_%H%M%S')
+                                      + '.wav')
                 rec_stream.start_recording()
                 record_led.blink()
                 dsphlp.dspwrite(lcd, clear=1)
                 rec_screen = dsphlp.display_screen(lcd)
             if item == 1 and recording:
-                print("Button RECORD released", item)
+                print('Button RECORD released', item)
                 idle = True
                 recording = False
                 rec_stream.stop_recording()
                 rec_stream.close()
-                reclist = get_recordingsList(basepath + "/recordings/")
-                MainMenu.replaceLevelItemList("0.", reclist[0])
+                reclist = get_recordingsList(basepath + '/recordings/')
+                MainMenu.replaceLevelItemList('0.', reclist[0])
                 record_led.off()
                 standard_screen()
         while len(play) > 0:
             item = play.popleft()
-            if item == 0 and menu and MainMenu.CurrentItem.startswith("0.") and not playing:
-                selectedrecording = int(MainMenu.CurrentItem.split(".")[MainMenu.CurrentLevel])
+            if item == 0 and menu and MainMenu.CurrentItem.startswith('0.') and not playing:
+                selectedrecording = int(MainMenu.CurrentItem.split('.')[MainMenu.CurrentLevel])
                 player = AudioIO.Player(channels=output_channels, rate=output_rate, device=output_device)
                 player_stream = player.open(reclist[1][selectedrecording])
                 player_stream.start_playing()
@@ -338,18 +338,18 @@ if __name__ == "__main__":
                 shutdown_bit = True
                 start_time = time.time()
                 shutdown_timer = time.time() - start_time
-                dsphlp.dspwrite(lcd, "Shutdown in:")
+                dsphlp.dspwrite(lcd, 'Shutdown in:')
             elif item == 1 and idle and shutdown_timer > 0:
                 shutdown_bit = False
                 shutdown_timer = 0
                 standard_screen()
             # handle the initiation and termination of a playing loop
             elif item == 0 and playing and not looping:
-                print("startLoop - implement this!")
+                print('startLoop - implement this!')
                 loopA = player_stream.get_pos_raw()
                 looping = True
             elif item == 0 and playing and looping:
-                print("stopLoop - implement this")
+                print('stopLoop - implement this')
                 loopB = player_stream.get_pos_raw()
 
         while len(enter) > 0:
@@ -362,25 +362,25 @@ if __name__ == "__main__":
                 MainMenu.levelDescent()
                 dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
             elif looping:
-                print("quitLoop - implement this!")
+                print('quitLoop - implement this!')
                 loopA = None
                 loopB = None
                 looping = False
             elif item == 0 and menu and MainMenu.currentItemIsAction():
                 # system monitor
                 if MainMenu.CurrentItem == '2.1':
-                    dsphlp.dspwrite(lcd, "Temperature:")
-                    dsphlp.dspwrite(lcd, str(round(CPUTemperature().temperature))+" degC", x=5, y=1, clear=0)
+                    dsphlp.dspwrite(lcd, 'Temperature:')
+                    dsphlp.dspwrite(lcd, str(round(CPUTemperature().temperature))+' degC', x=5, y=1, clear=0)
                 if MainMenu.CurrentItem == '2.2':
                     statvfs = os.statvfs(basepath)
                     fs_free = (statvfs.f_frsize * statvfs.f_bavail)/1000000000
                     fs_fullpercent = fs_free/((statvfs.f_frsize
                                                * statvfs.f_blocks)/1000000000)
-                    dsphlp.dspwrite(lcd, "FS: "
+                    dsphlp.dspwrite(lcd, 'FS: '
                                     + str(round(fs_free, 2))
-                                    + " GB free")
+                                    + ' GB free')
                     dsphlp.dspwrite(lcd, str(round(100-fs_fullpercent*100, 2))
-                                    + " % full", x=3, y=1, clear=0)
+                                    + ' % full', x=3, y=1, clear=0)
                 if MainMenu.CurrentItem == '2.3':
                     sysmon.start()
                 # input level
@@ -393,30 +393,29 @@ if __name__ == "__main__":
                 if MainMenu.CurrentItem[:-1] == '1.0.':
                     config['AUDIO_INPUT']['name'] = MainMenu.AllItems[MainMenu.CurrentItem]
                     print(config['AUDIO_INPUT']['name'])
+                    print(AudioIO.get_deviceid_byname(str(config['AUDIO_INPUT']['name'])))
                     config['AUDIO_INPUT']['nchan'] = str(AudioIO.get_device_props(
-                                                         MainMenu.AllItems[
-                                                         MainMenu.CurrentItem])[1])
+                                                         config['AUDIO_INPUT']['name'])[1])
                     config['AUDIO_INPUT']['srate'] = str(AudioIO.get_device_props(
-                                                         MainMenu.AllItems[
-                                                         MainMenu.CurrentItem])[0])
+                                                         config['AUDIO_INPUT']['name'])[0])
                     with open(basepath
-                              + "/config/default.cfg", 'w') as configfile:
+                              + '/config/default.cfg', 'w') as configfile:
                         config.write(configfile)
                 # setting output device
                 if MainMenu.CurrentItem[:-1] == '1.2.':
                     config['AUDIO_OUTPUT']['name'] = MainMenu.AllItems[MainMenu.CurrentItem]
                     with open(basepath
-                              + "/config/default.cfg", 'w') as configfile:
+                              + '/config/default.cfg', 'w') as configfile:
                         config.write(configfile)
 
         # This is the recording screen
         if recording:
             rec_level = int(round(rec_stream.get_recLevel()*20, 0))
             rec_level_bar = '#'*rec_level + ' '*(20-rec_level)
-            rec_time = "Time elapsed:  " + rec_stream.get_recordingtime()
-            rec_screen_text = "==== RECORDING! ====" \
+            rec_time = 'Time elapsed:  ' + rec_stream.get_recordingtime()
+            rec_screen_text = '==== RECORDING! ====' \
                 + rec_time \
-                + "\n" \
+                + '\n' \
                 + rec_level_bar
             rec_screen.draw_screen(rec_screen_text)
 
@@ -424,9 +423,9 @@ if __name__ == "__main__":
         if shutdown_bit:
             shutdown_timer = time.time() - start_time
             dsphlp.dspwrite(lcd, str(5 - round(shutdown_timer))
-                            + " seconds", x=2, y=1, clear=0)
+                            + ' seconds', x=2, y=1, clear=0)
             if shutdown_timer > 5:
-                os.system("sudo shutdown -h now")
+                os.system('sudo shutdown -h now')
             time.sleep(0.05)
 
         # This is the player screen
@@ -438,11 +437,11 @@ if __name__ == "__main__":
                 # sep
                 player_stream.set_pos_raw(loopA)
             if player_stream.is_active():
-                playstatusicon = ">"
+                playstatusicon = '>'
             else:
                 playstatusicon = chr(5)
             cpos = player_stream.get_pos_prc()
-            progress_bar = ["-", "-", "-", "-", "-", "-", "-", "-", "-", "-"]
+            progress_bar = ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-']
             if cpos <= 0.50:
                 progress_position = int(math.floor(cpos*9.0))
             else:
@@ -452,22 +451,22 @@ if __name__ == "__main__":
             else:
                 progress_fraction = 4
             progress_bar[progress_position] = chr(progress_fraction)
-            progress_bar = "".join(progress_bar)
+            progress_bar = ''.join(progress_bar)
             if loopA is None:
-                loopA_text = "Loop A: not set     "
+                loopA_text = 'Loop A: not set     '
             else:
-                loopA_text = "Loop A: " \
+                loopA_text = 'Loop A: ' \
                              + player_stream.get_pos_formatted(loopA) \
-                             + "       "
+                             + '       '
             if loopB is None:
-                loopB_text = "Loop B: not set     "
+                loopB_text = 'Loop B: not set     '
             else:
-                loopB_text = "Loop B: " \
+                loopB_text = 'Loop B: ' \
                              + player_stream.get_pos_formatted(loopB) \
-                             + "       "
+                             + '       '
             play_screen_text = playstatusicon \
                 + MainMenu.AllItems[MainMenu.CurrentItem] \
-                + " "*(19 - len(MainMenu.AllItems[MainMenu.CurrentItem])) \
+                + ' '*(19 - len(MainMenu.AllItems[MainMenu.CurrentItem])) \
                 + loopA_text \
                 + loopB_text \
                 + player_stream.get_pos_formatted() \
