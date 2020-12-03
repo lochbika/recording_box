@@ -32,3 +32,65 @@ class display_screen(object):
     def close(self):
         self._lcdwrite()
         return
+
+
+class DSPcharacters(object):
+    def __init__(self, lcd):
+        self.lcd = lcd
+
+    def load_progress(self):
+        char1 = (0b10000,
+                 0b10000,
+                 0b10000,
+                 0b11111,
+                 0b10000,
+                 0b10000,
+                 0b10000,
+                 0b00000)
+        char2 = (0b01000,
+                 0b01000,
+                 0b01000,
+                 0b11111,
+                 0b01000,
+                 0b01000,
+                 0b01000,
+                 0b00000)
+        char3 = (0b00100,
+                 0b00100,
+                 0b00100,
+                 0b11111,
+                 0b00100,
+                 0b00100,
+                 0b00100,
+                 0b00000)
+        char4 = (0b00010,
+                 0b00010,
+                 0b00010,
+                 0b11111,
+                 0b00010,
+                 0b00010,
+                 0b00010,
+                 0b00000)
+        char5 = (0b00001,
+                 0b00001,
+                 0b00001,
+                 0b11111,
+                 0b00001,
+                 0b00001,
+                 0b00001,
+                 0b00000)
+        char6 = (0b01010,
+                 0b01010,
+                 0b01010,
+                 0b01010,
+                 0b01010,
+                 0b01010,
+                 0b01010,
+                 0b01010)
+        self.lcd.create_char(0, char1)
+        self.lcd.create_char(1, char2)
+        self.lcd.create_char(2, char3)
+        self.lcd.create_char(3, char4)
+        self.lcd.create_char(4, char5)
+        self.lcd.create_char(5, char6)
+        return

@@ -53,66 +53,7 @@ loopA = None
 loopB = None
 
 # custom characters
-progress20prc1 = (0b10000,
-                  0b10000,
-                  0b10000,
-                  0b11111,
-                  0b10000,
-                  0b10000,
-                  0b10000,
-                  0b00000)
-
-progress20prc2 = (0b01000,
-                  0b01000,
-                  0b01000,
-                  0b11111,
-                  0b01000,
-                  0b01000,
-                  0b01000,
-                  0b00000)
-
-progress20prc3 = (0b00100,
-                  0b00100,
-                  0b00100,
-                  0b11111,
-                  0b00100,
-                  0b00100,
-                  0b00100,
-                  0b00000)
-
-progress20prc4 = (0b00010,
-                  0b00010,
-                  0b00010,
-                  0b11111,
-                  0b00010,
-                  0b00010,
-                  0b00010,
-                  0b00000)
-
-progress20prc5 = (0b00001,
-                  0b00001,
-                  0b00001,
-                  0b11111,
-                  0b00001,
-                  0b00001,
-                  0b00001,
-                  0b00000)
-
-chrpause = (0b01010,
-            0b01010,
-            0b01010,
-            0b01010,
-            0b01010,
-            0b01010,
-            0b01010,
-            0b01010)
-
-lcd.create_char(0, progress20prc1)
-lcd.create_char(1, progress20prc2)
-lcd.create_char(2, progress20prc3)
-lcd.create_char(3, progress20prc4)
-lcd.create_char(4, progress20prc5)
-lcd.create_char(5, chrpause)
+custom_chars = dsphlp.DSPcharacters(lcd)
 
 # Define the main menu
 Menu_labels = {'0': 'List Recordings',
@@ -317,6 +258,7 @@ if __name__ == '__main__':
             item = play.popleft()
             if item == 0 and menu and MainMenu.CurrentItem.startswith('0.') and not playing:
                 selectedrecording = int(MainMenu.CurrentItem.split('.')[MainMenu.CurrentLevel])
+                custom_chars.load_progress()
                 player = AudioIO.Player(channels=output_channels, rate=output_rate, device=output_device)
                 player_stream = player.open(reclist[1][selectedrecording])
                 player_stream.start_playing()
