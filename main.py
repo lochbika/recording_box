@@ -234,6 +234,7 @@ if __name__ == '__main__':
             if item == 0 and idle:
                 idle = False
                 recording = True
+                custom_chars.load_level()
                 rec = AudioIO.Recorder(channels=input_channels,
                                        rate=input_rate, device=input_device)
                 rec_stream = rec.open(fname=basepath + '/recordings/'
@@ -354,8 +355,10 @@ if __name__ == '__main__':
 
         # This is the recording screen
         if recording:
-            rec_level = int(round(rec_stream.get_recLevel()*20, 0))
-            rec_level_bar = '#'*rec_level + ' '*(20-rec_level)
+            rec_level_raw = rec_stream.get_recLevel()
+            rec_level_int = math.floor(rec_level_raw*20.0)
+            rec_level_frac = int(round((((rec_level_raw*20.0) - rec_level_int) * 3), 0))
+            rec_level_bar = chr(4)*rec_level_int + chr(rec_level_frac) + ' '*((20-rec_level_int))
             rec_time = 'Time elapsed:  ' + rec_stream.get_recordingtime()
             rec_screen_text = '==== RECORDING! ====' \
                 + rec_time \
