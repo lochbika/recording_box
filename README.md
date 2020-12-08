@@ -1,5 +1,19 @@
 # A recording box for USB microphones and audio interfaces
 
+This small project is a audio recording box built from a Raspberry Pi and some basic components. 
+Audio recording is possible via any USB microphone. For playback a USB sound card is recommended.
+The goal is to have simple cassette recorder like functionality.
+
+Features are
+
+- direct recording with one button push
+- a display with a basic menu to navigate through recordings and setup audio devices
+- menu navigation is done with a rotary encoder with a built-in switch (push)
+- playback can be started by navigating to a recorded file and pushing the play button
+- a separate button can be used to set up a A/B loop for continuous playback.
+- recorded files are named with a date and time stamp
+- the RTC module keeps time and date when unplugged from power
+
 ## List of materials
 
 - Raspberry Pi 3
