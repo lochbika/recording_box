@@ -1,0 +1,12 @@
+dtparam=i2c_arm=on
+
+dtoverlay=i2c-rtc,pcf8523
+dtoverlay=disable-bt
+arm_freq=950
+core_freq=250
+sdram_freq=450
+over_voltage=6
+
+dtparam=audio=off
+
+gpu_mem=32
