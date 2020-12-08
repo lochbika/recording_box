@@ -3,8 +3,9 @@
 ## List of materials
 
 - Raspberry Pi 3
-- 3 push buttons (1 momentary and 2 on/off switches)
+- 3 push buttons (1 momentary: Loop, and 2 on/off switches: Rec and Play)
 - 3 LEDs and resistors
+- a rotary encoder with integrated push button (for menu navigation)
 - real Time Clock module
 - LCD Display (20x4 characters)
 - an adequate enclosure
