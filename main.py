@@ -358,7 +358,7 @@ if __name__ == '__main__':
             rec_level_raw = rec_stream.get_recLevel()
             rec_level_int = math.floor(rec_level_raw*20.0)
             rec_level_frac = int(round((((rec_level_raw*20.0) - rec_level_int) * 3), 0))
-            rec_level_bar = chr(4)*rec_level_int + chr(rec_level_frac) + ' '*((20-rec_level_int))
+            rec_level_bar = chr(4)*rec_level_int + chr(rec_level_frac) + ' '*((19-rec_level_int))
             rec_time = 'Time elapsed:  ' + rec_stream.get_recordingtime()
             rec_screen_text = '==== RECORDING! ====' \
                 + rec_time \
