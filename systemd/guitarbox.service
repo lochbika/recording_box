@@ -1,0 +1,10 @@
+[Unit]
+Description=The guitar record box software
+[Service]
+WorkingDirectory=/home/pi/guitar_recordbox
+User=pi
+ExecStart=/usr/bin/python3 /home/pi/guitar_recordbox/main.py
+Restart=always
+RestartSec=2
+[Install]
+WantedBy=multi-user.target

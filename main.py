@@ -12,11 +12,26 @@ import LCDmenu
 from datetime import datetime
 import configparser as cfp
 import math
+import signal
+import sys
 
 # custom modules
 import AudioIO
 import display_helper as dsphlp
 import gbapps
+
+
+# this will properly handle CTRL-C/TERM and show a message
+def signal_handler(sig, frame):
+    dsphlp.dspwrite(lcd, clear=1)
+    exit_screen = dsphlp.display_screen(lcd)
+    exit_screen_text = '===== EXITING! =====' \
+                       + '\n' \
+                       + 'Bye Bye' \
+                       + '\n'
+    exit_screen.draw_screen(exit_screen_text)
+    sys.exit(0)
+
 
 # some important paths
 basepath = os.getcwd()
@@ -277,14 +292,15 @@ if __name__ == '__main__':
                 else:
                     MainMenu.levelAscent()
                     dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
-            elif item == 0 and idle:
+            elif item == 0 and idle and not shutdown_bit:
                 shutdown_bit = True
-                start_time = time.time()
-                shutdown_timer = time.time() - start_time
-                dsphlp.dspwrite(lcd, 'Shutdown in:')
-            elif item == 1 and idle and shutdown_timer > 0:
+                shutdown_start_time = time.time()
+                dsphlp.dspwrite(lcd, clear=1)
+                shutdown_screen = dsphlp.display_screen(lcd)
+            elif item == 1 and idle and shutdown_bit:
                 shutdown_bit = False
                 shutdown_timer = 0
+                dsphlp.dspwrite(lcd, clear=1)
                 standard_screen()
             # handle the initiation and termination of a playing loop
             elif item == 0 and playing and not looping:
@@ -366,15 +382,6 @@ if __name__ == '__main__':
                 + rec_level_bar
             rec_screen.draw_screen(rec_screen_text)
 
-        # special section for the shutdown timer
-        if shutdown_bit:
-            shutdown_timer = time.time() - start_time
-            dsphlp.dspwrite(lcd, str(5 - round(shutdown_timer))
-                            + ' seconds', x=2, y=1, clear=0)
-            if shutdown_timer > 5:
-                os.system('sudo shutdown -h now')
-            time.sleep(0.05)
-
         # This is the player screen
         if playing:
             if (looping and
@@ -419,6 +426,23 @@ if __name__ == '__main__':
                 + player_stream.get_pos_formatted() \
                 + progress_bar + player_stream.get_length_formatted()
             play_screen.draw_screen(play_screen_text)
+
+        # The shutdown screen
+        if shutdown_bit:
+            shutdown_timer = time.time() - shutdown_start_time
+            shutdown_screen_text = '===== SHUTDOWN =====' \
+                            + '\n' \
+                            + 'shutting down in:   ' \
+                            + '   ' + str(5 - round(shutdown_timer)) \
+                            + ' seconds' 
+            shutdown_screen.draw_screen(shutdown_screen_text)
+            if shutdown_timer > 5:
+                os.system('sudo shutdown -h now')
+            time.sleep(0.05)
+
+        # Check for keyboard interupt
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
 
         # some delay to reduce CPU
         time.sleep(0.001)
