@@ -1,5 +1,5 @@
 [Unit]
-Description=The guitar record box software
+Description=The record box software
 [Service]
 WorkingDirectory=/home/pi/guitar_recordbox
 User=pi
