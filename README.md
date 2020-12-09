@@ -63,13 +63,13 @@ dtoverlay=i2c-rtc,pcf8523
 There is an example file at [RaspberryPi_config/config.txt](RaspberryPi_config/config.txt).
 
 ### Run it
-Either log in via ssh and manually start it:
+Either log in via ssh and manually start it
 
 ```
 python3 main.py
 ```
 
-modify and copy the [systemd service file](systemd/recording_box.service) to /etc/systemd/system, start and enable it:
+or modify and copy the [systemd service file](systemd/recording_box.service) to /etc/systemd/system, start and enable it:
 
 ```
 sudo cp systemd/recording_box.service /etc/systemd/system/
