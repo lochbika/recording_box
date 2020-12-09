@@ -1,9 +1,9 @@
 [Unit]
 Description=The record box software
 [Service]
-WorkingDirectory=/home/pi/guitar_recordbox
+WorkingDirectory=/home/pi/recording_box
 User=pi
-ExecStart=/usr/bin/python3 /home/pi/guitar_recordbox/main.py
+ExecStart=/usr/bin/python3 /home/pi/recording_box/main.py
 Restart=always
 RestartSec=2
 [Install]
