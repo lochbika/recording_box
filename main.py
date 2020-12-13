@@ -1,5 +1,5 @@
 # initialize
-from gpiozero import LED
+from gpiozero import PWMLED
 from gpiozero import CPUTemperature
 from RPLCD.i2c import CharLCD
 from RPi import GPIO
@@ -50,8 +50,17 @@ output_rate = 44100
 output_channels = 2
 
 # LEDs
-record_ledpin = 24
-record_led = LED(record_ledpin)
+leds_fadein = 0.4
+leds_fadeout = 0.4
+leds_frequency = 1000
+leds_bright = 0.3
+
+record_ledpin = 5
+play_ledpin = 6
+loop_ledpin = 13
+record_led = PWMLED(record_ledpin, frequency=leds_frequency)
+play_led = PWMLED(play_ledpin, frequency=leds_frequency)
+loop_led = PWMLED(loop_ledpin, frequency=leds_frequency)
 
 # LCD
 lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4, charmap='A02')
@@ -186,6 +195,10 @@ def startup():
     global input_devices
     # welcoe message ;)
     dsphlp.dspwrite(lcd, '===== WELCOME! =====')
+    # some fancy stuff with the leds
+    record_led.blink(n=1, fade_in_time=2)
+    play_led.blink(n=1, fade_in_time=2)
+    loop_led.blink(n=1, fade_in_time=2)
     # get the list of existing recordings and update the menu with it
     reclist = get_recordingsList(basepath + '/recordings/')
     MainMenu.replaceLevelItemList('0.', reclist[0])
@@ -219,6 +232,7 @@ buttons.start()
 if __name__ == '__main__':
     # call the startup routine and then move on to the main part
     startup()
+    # enter the main program loop
     while True:
         # check the rotary thread for new input
         while len(rot) > 0:
@@ -231,9 +245,9 @@ if __name__ == '__main__':
                         player_stream.stop_playing()
                         player_stream.close()
                         play_screen.close()
+                        play_led.off()
                         playing = False
                         if looping:
-                            print('looper action - implement this!')
                             loopA = None
                             loopB = None
                             looping = False
@@ -261,7 +275,6 @@ if __name__ == '__main__':
                 dsphlp.dspwrite(lcd, clear=1)
                 rec_screen = dsphlp.display_screen(lcd)
             if item == 1 and recording:
-                print('Button RECORD released', item)
                 idle = True
                 recording = False
                 rec_stream.stop_recording()
@@ -279,9 +292,11 @@ if __name__ == '__main__':
                 player_stream = player.open(reclist[1][selectedrecording])
                 player_stream.start_playing()
                 play_screen = dsphlp.display_screen(lcd)
+                play_led.on()
                 playing = True
             elif playing:
                 player_stream.toggle()
+                play_led.toggle()
         while len(loop) > 0:
             item = loop.popleft()
             if item == 0 and menu and not playing:
@@ -304,12 +319,12 @@ if __name__ == '__main__':
                 standard_screen()
             # handle the initiation and termination of a playing loop
             elif item == 0 and playing and not looping:
-                print('startLoop - implement this!')
                 loopA = player_stream.get_pos_raw()
                 looping = True
-            elif item == 0 and playing and looping:
-                print('stopLoop - implement this')
+                loop_led.pulse(fade_in_time=leds_fadein, fade_out_time=leds_fadeout)
+            elif item == 0 and playing and looping and loopB is None:
                 loopB = player_stream.get_pos_raw()
+                loop_led.on()
 
         while len(enter) > 0:
             item = enter.popleft()
@@ -321,10 +336,10 @@ if __name__ == '__main__':
                 MainMenu.levelDescent()
                 dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
             elif looping:
-                print('quitLoop - implement this!')
                 loopA = None
                 loopB = None
                 looping = False
+                loop_led.off()
             elif item == 0 and menu and MainMenu.currentItemIsAction():
                 # system monitor
                 if MainMenu.CurrentItem == '2.1':
@@ -384,12 +399,33 @@ if __name__ == '__main__':
 
         # This is the player screen
         if playing:
+            # handle the looping here
             if (looping and
                 loopA is not None and
-                loopB is not None and
-                player_stream.get_pos_raw() > loopB):
-                # sep
+                loopB is not None):
+                if (loopB < player_stream.get_length_raw()and
+                    player_stream.get_pos_raw() >= loopB):
+                    player_stream.set_pos_raw(loopA)
+                elif (loopB == player_stream.get_length_raw()and
+                    player_stream.get_pos_raw() >= loopB):
+                    player_stream.close()
+                    selectedrecording = int(MainMenu.CurrentItem.split('.')[MainMenu.CurrentLevel])
+                    player = AudioIO.Player(channels=output_channels, rate=output_rate, device=output_device)
+                    player_stream = player.open(reclist[1][selectedrecording])
+                    player_stream.start_playing()
+                    player_stream.set_pos_raw(loopA)
+            elif (looping and loopA is not None and
+                loopB is None and
+                player_stream.get_pos_raw() == player_stream.get_length_raw()):
+                loopB = player_stream.get_pos_raw()
+                player_stream.close()
+                selectedrecording = int(MainMenu.CurrentItem.split('.')[MainMenu.CurrentLevel])
+                player = AudioIO.Player(channels=output_channels, rate=output_rate, device=output_device)
+                player_stream = player.open(reclist[1][selectedrecording])
+                player_stream.start_playing()
                 player_stream.set_pos_raw(loopA)
+                loop_led.on()
+            # now handle what will be displayed
             if player_stream.is_active():
                 playstatusicon = '>'
             else:
@@ -434,13 +470,13 @@ if __name__ == '__main__':
                             + '\n' \
                             + 'shutting down in:   ' \
                             + '   ' + str(5 - round(shutdown_timer)) \
-                            + ' seconds' 
+                            + ' seconds'
             shutdown_screen.draw_screen(shutdown_screen_text)
             if shutdown_timer > 5:
                 os.system('sudo shutdown -h now')
             time.sleep(0.05)
 
-        # Check for keyboard interupt
+        # Check for keyboard interupt and termination signal
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 

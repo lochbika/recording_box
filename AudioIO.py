@@ -188,6 +188,9 @@ class PlayingFile(object):
 
         return(dur_minutes + ":" + dur_seconds)
 
+    def get_length_raw(self):
+        return(self.wavefile.getnframes())
+
     def get_pos_raw(self):
         return(self.wavefile.tell())
 
@@ -216,7 +219,7 @@ class PlayingFile(object):
 
     def set_pos_raw(self, position):
         self.wavefile.setpos(position)
-        return
+        return(self)
 
     def set_pos_skip(self, t):
         position = self.wavefile.tell()
@@ -229,12 +232,13 @@ class PlayingFile(object):
         elif position < 0:
             position = 0
         self.wavefile.setpos(position)
-        return
+        return(self)
 
     def close(self):
         self._stream.close()
         self._pa.terminate()
         self.wavefile.close()
+        return(self)
 
     def _load_file(self, fname, mode='rb'):
         wavefile = wave.open(fname, mode)
