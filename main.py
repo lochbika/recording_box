@@ -49,6 +49,10 @@ output_device = AudioIO.get_deviceid_byname(config['AUDIO_OUTPUT']['name'])
 output_rate = 44100
 output_channels = 2
 
+# for alsaaudio
+input_mixer = 'Mic'
+output_mixer = 'Speaker'
+
 # LEDs
 leds_fadein = 0.4
 leds_fadeout = 0.4
@@ -256,6 +260,8 @@ if __name__ == '__main__':
                 elif item == 1:
                     MainMenu.setPrevItem()
                 dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
+            if recording:
+                AudioIO.set_recording_volume(input_mixer, input_device, int(item * -2))
 
         # check the buttons thread for new input
         while len(record) > 0:
@@ -390,10 +396,13 @@ if __name__ == '__main__':
             rec_level_int = math.floor(rec_level_raw*20.0)
             rec_level_frac = int(round((((rec_level_raw*20.0) - rec_level_int) * 3), 0))
             rec_level_bar = chr(4)*rec_level_int + chr(rec_level_frac) + ' '*((19-rec_level_int))
+            rec_volume = AudioIO.get_recording_volume(input_mixer, input_device)
+            rec_volume = 'Input Volume: ' + str(rec_volume[0]) + ' %'
+            rec_volume = rec_volume + ' '* (20 - len(rec_volume))
             rec_time = 'Time elapsed:  ' + rec_stream.get_recordingtime()
             rec_screen_text = '==== RECORDING! ====' \
                 + rec_time \
-                + '\n' \
+                + rec_volume \
                 + rec_level_bar
             rec_screen.draw_screen(rec_screen_text)
 
@@ -403,7 +412,7 @@ if __name__ == '__main__':
             if (looping and
                 loopA is not None and
                 loopB is not None):
-                if (loopB < player_stream.get_length_raw()and
+                if (loopB < player_stream.get_length_raw() and
                     player_stream.get_pos_raw() >= loopB):
                     player_stream.set_pos_raw(loopA)
                 elif (loopB == player_stream.get_length_raw()and
@@ -462,6 +471,18 @@ if __name__ == '__main__':
                 + player_stream.get_pos_formatted() \
                 + progress_bar + player_stream.get_length_formatted()
             play_screen.draw_screen(play_screen_text)
+            if not looping and player_stream.get_pos_raw() == player_stream.get_length_raw():
+                player_stream.close()
+                play_led.blink()
+                play_screen.close()
+                dsphlp.display_screen(lcd).draw_screen('=---REACHED-END----=' \
+                                                     + '= Press play again =' \
+                                                     + '=  or turn knob    =' \
+                                                     + '=------------------=')
+                while playing:
+                    if len(play) > 0 or len(rot) > 0:
+                        play_led.off()
+                        playing = False
 
         # The shutdown screen
         if shutdown_bit:

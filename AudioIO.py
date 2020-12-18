@@ -3,6 +3,7 @@ import wave
 import time
 from math import floor
 import numpy as np
+import alsaaudio
 
 
 class Recorder(object):
@@ -364,3 +365,26 @@ def get_audioOutputList():
     output_list = [indices, names]
     p.terminate()
     return(output_list)
+
+# alsaaudio stuff for volume control
+def get_recording_volume(control, cardindex):
+    mixer = alsaaudio.Mixer(control=control, cardindex=cardindex)
+    return(mixer.getvolume(alsaaudio.PCM_CAPTURE))
+
+# function to get the recording volume using alsaaudio
+def get_playback_volume(control, cardindex):
+    mixer = alsaaudio.Mixer(control=control, cardindex=cardindex)
+    return(mixer.getvolume(alsaaudio.PCM_PLAYBACK))
+
+def set_recording_volume(control, cardindex, change: int):
+    input_volume = get_recording_volume(control, cardindex)
+    for channel in range(len(input_volume)):
+        input_volume[channel] += change
+        if input_volume[channel] > 100:
+            input_volume[channel] = 100
+        elif input_volume[channel] < 0:
+            input_volume[channel] = 0
+    mixer = alsaaudio.Mixer(control=control, cardindex=cardindex)
+    for channel in range(len(input_volume)):
+        mixer.setvolume(input_volume[channel], channel)
+    return
