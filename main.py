@@ -1,6 +1,7 @@
 # initialize
 from gpiozero import PWMLED
 from gpiozero import CPUTemperature
+from gpiozero import Button
 from RPLCD.i2c import CharLCD
 from RPi import GPIO
 import time
@@ -62,6 +63,47 @@ record_led = PWMLED(record_ledpin, frequency=leds_frequency)
 play_led = PWMLED(play_ledpin, frequency=leds_frequency)
 loop_led = PWMLED(loop_ledpin, frequency=leds_frequency)
 
+
+def button_press_recording(btn, led=record_led):
+    global idle
+    if idle:
+        idle = False
+        custom_chars.load_level()
+        rec = AudioIO.Recorder(channels=input_channels,
+                               rate=input_rate, device=input_device)
+        rec_stream = rec.open(fname=basepath + '/recordings/'
+                              + datetime.now().strftime(
+                              '%Y%m%d_%H%M%S')
+                              + '.wav')
+        rec_stream.start_recording()
+        led.blink()
+        dsphlp.dspwrite(lcd, clear=1)
+        rec_screen = dsphlp.display_screen(lcd)
+        while (btn.is_pressed):
+            rec_level_raw = rec_stream.get_recLevel()
+            rec_level_int = math.floor(rec_level_raw*20.0)
+            rec_level_frac = int(round((((rec_level_raw*20.0) - rec_level_int) * 3), 0))
+            rec_level_bar = chr(4)*rec_level_int + chr(rec_level_frac) + ' '*((19-rec_level_int))
+            rec_time = 'Time elapsed:  ' + rec_stream.get_recordingtime()
+            rec_screen_text = '==== RECORDING! ====' \
+                + rec_time \
+                + '\n' \
+                + rec_level_bar
+            rec_screen.draw_screen(rec_screen_text)
+            time.sleep(0.05)
+        idle = True
+        rec_stream.stop_recording()
+        rec_stream.close()
+        reclist = get_recordingsList(basepath + '/recordings/')
+        MainMenu.replaceLevelItemList('0.', reclist[0])
+        led.off()
+        standard_screen()
+    return
+
+# set up buttons
+record_button = Button(pin=4, pull_up=True, bounce_time=0.1)
+record_button.when_pressed = button_press_recording
+
 # LCD
 lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4, charmap='A02')
 
@@ -105,37 +147,29 @@ def standard_screen():
     dsphlp.dspwrite(lcd, 'Record, Play or Menu', y=1, clear=0)
 
 
-def button_handler(record, play, loop, enter):
+def button_handler(play, loop, enter):
     # the current states of all buttons
-    record_state = 0
     play_state = 0
     loop_state = 0
     enter_state = 0
     # last known states
-    record_OLDstate = 0
     play_OLDstate = 0
     loop_OLDstate = 0
     enter_OLDstate = 0
 
     # initiate the GPIO pins
-    record_pin = 4
     play_pin = 22
     loop_pin = 23
     enter_pin = 27
-    GPIO.setup(record_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(play_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(loop_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(enter_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
     # the event loop
     while True:
-        record_state = GPIO.input(record_pin)
         play_state = GPIO.input(play_pin)
         loop_state = GPIO.input(loop_pin)
         enter_state = GPIO.input(enter_pin)
-        if record_state != record_OLDstate:
-            record.append(record_state)
-            record_OLDstate = record_state
         if play_state != play_OLDstate:
             play.append(play_state)
             play_OLDstate = play_state
@@ -219,12 +253,11 @@ rotary = threading.Thread(target=rotary_status, args=(rot, ), daemon=True)
 rotary.start()
 
 # setup and start the button hanler
-record = deque([0], 1)
 play = deque([0], 1)
 loop = deque([0], 1)
 enter = deque([0], 1)
 buttons = threading.Thread(target=button_handler,
-                           args=(record, play, loop, enter, ),
+                           args=(play, loop, enter, ),
                            daemon=True)
 buttons.start()
 
@@ -257,32 +290,6 @@ if __name__ == '__main__':
                     MainMenu.setPrevItem()
                 dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
 
-        # check the buttons thread for new input
-        while len(record) > 0:
-            item = record.popleft()
-            if item == 0 and idle:
-                idle = False
-                recording = True
-                custom_chars.load_level()
-                rec = AudioIO.Recorder(channels=input_channels,
-                                       rate=input_rate, device=input_device)
-                rec_stream = rec.open(fname=basepath + '/recordings/'
-                                      + datetime.now().strftime(
-                                      '%Y%m%d_%H%M%S')
-                                      + '.wav')
-                rec_stream.start_recording()
-                record_led.blink()
-                dsphlp.dspwrite(lcd, clear=1)
-                rec_screen = dsphlp.display_screen(lcd)
-            if item == 1 and recording:
-                idle = True
-                recording = False
-                rec_stream.stop_recording()
-                rec_stream.close()
-                reclist = get_recordingsList(basepath + '/recordings/')
-                MainMenu.replaceLevelItemList('0.', reclist[0])
-                record_led.off()
-                standard_screen()
         while len(play) > 0:
             item = play.popleft()
             if item == 0 and menu and MainMenu.CurrentItem.startswith('0.') and not playing:
@@ -383,19 +390,6 @@ if __name__ == '__main__':
                     with open(basepath
                               + '/config/default.cfg', 'w') as configfile:
                         config.write(configfile)
-
-        # This is the recording screen
-        if recording:
-            rec_level_raw = rec_stream.get_recLevel()
-            rec_level_int = math.floor(rec_level_raw*20.0)
-            rec_level_frac = int(round((((rec_level_raw*20.0) - rec_level_int) * 3), 0))
-            rec_level_bar = chr(4)*rec_level_int + chr(rec_level_frac) + ' '*((19-rec_level_int))
-            rec_time = 'Time elapsed:  ' + rec_stream.get_recordingtime()
-            rec_screen_text = '==== RECORDING! ====' \
-                + rec_time \
-                + '\n' \
-                + rec_level_bar
-            rec_screen.draw_screen(rec_screen_text)
 
         # This is the player screen
         if playing:
