@@ -234,8 +234,13 @@ buttons.start()
 
 # main program
 if __name__ == '__main__':
+    # Check for keyboard interupt and termination signal
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     # call the startup routine and then move on to the main part
     startup()
+
     # enter the main program loop
     while True:
         # check the rotary thread for new input
@@ -398,7 +403,7 @@ if __name__ == '__main__':
             rec_level_bar = chr(4)*rec_level_int + chr(rec_level_frac) + ' '*((19-rec_level_int))
             rec_volume = AudioIO.get_recording_volume(input_mixer, input_device)
             rec_volume = 'Input Volume: ' + str(rec_volume[0]) + ' %'
-            rec_volume = rec_volume + ' '* (20 - len(rec_volume))
+            rec_volume = rec_volume + ' ' * (20 - len(rec_volume))
             rec_time = 'Time elapsed:  ' + rec_stream.get_recordingtime()
             rec_screen_text = '==== RECORDING! ====' \
                 + rec_time \
@@ -415,7 +420,7 @@ if __name__ == '__main__':
                 if (loopB < player_stream.get_length_raw() and
                     player_stream.get_pos_raw() >= loopB):
                     player_stream.set_pos_raw(loopA)
-                elif (loopB == player_stream.get_length_raw()and
+                elif (loopB == player_stream.get_length_raw() and
                     player_stream.get_pos_raw() >= loopB):
                     player_stream.close()
                     selectedrecording = int(MainMenu.CurrentItem.split('.')[MainMenu.CurrentLevel])
@@ -475,9 +480,9 @@ if __name__ == '__main__':
                 player_stream.close()
                 play_led.blink()
                 play_screen.close()
-                dsphlp.display_screen(lcd).draw_screen('=---REACHED-END----=' \
-                                                     + '= Press play again =' \
-                                                     + '=  or turn knob    =' \
+                dsphlp.display_screen(lcd).draw_screen('=---REACHED-END----='
+                                                     + '= Press play again ='
+                                                     + '=  or turn knob    ='
                                                      + '=------------------=')
                 while playing:
                     if len(play) > 0 or len(rot) > 0:
@@ -496,10 +501,6 @@ if __name__ == '__main__':
             if shutdown_timer > 5:
                 os.system('sudo shutdown -h now')
             time.sleep(0.05)
-
-        # Check for keyboard interupt and termination signal
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
 
         # some delay to reduce CPU
         time.sleep(0.001)
