@@ -15,6 +15,7 @@ import configparser as cfp
 import math
 import signal
 import sys
+import alsaaudio
 
 # custom modules
 import AudioIO
@@ -50,6 +51,42 @@ output_device = AudioIO.get_deviceid_byname(config['AUDIO_OUTPUT']['name'])
 output_rate = 44100
 output_channels = 2
 
+######
+### ALSA stuff for volume adjustments; EXPERIMENTAL
+######
+
+
+# get the alsa level mixer names for in and output
+input_mixer = 'Mic'
+output_mixer = 'Speaker'
+
+# function to get the recording volume using alsaaudio
+def get_recording_volume(control, cardindex):
+    mixer = alsaaudio.Mixer(control=control, cardindex=cardindex)
+    return(mixer.getvolume(alsaaudio.PCM_CAPTURE))
+
+# function to get the recording volume using alsaaudio
+def get_playback_volume(control, cardindex):
+    mixer = alsaaudio.Mixer(control=control, cardindex=cardindex)
+    return(mixer.getvolume(alsaaudio.PCM_PLAYBACK))
+
+def set_input_volume(control, cardindex, change):
+    input_volume = get_recording_volume(input_mixer, input_device)
+    for channel in range(len(input_volume)):
+        input_volume[channel] += change
+        if input_volume[channel] > 100:
+            input_volume[channel] = 100
+        elif input_volume[channel] < 0:
+            input_volume[channel] = 0
+    mixer = alsaaudio.Mixer(control=control, cardindex=cardindex)
+    for channel in range(len(input_volume)):
+        mixer.setvolume(input_volume[channel], channel)
+    return
+
+######
+###
+######
+
 # LEDs
 leds_fadein = 0.4
 leds_fadeout = 0.4
@@ -66,8 +103,14 @@ loop_led = PWMLED(loop_ledpin, frequency=leds_frequency)
 
 def button_press_recording(btn, led=record_led):
     global idle
+    global input_mixer
+    global input_device
+    global recording
+    global basepath
+    global reclist
     if idle:
         idle = False
+        recording = True
         custom_chars.load_level()
         rec = AudioIO.Recorder(channels=input_channels,
                                rate=input_rate, device=input_device)
@@ -84,16 +127,20 @@ def button_press_recording(btn, led=record_led):
             rec_level_int = math.floor(rec_level_raw*20.0)
             rec_level_frac = int(round((((rec_level_raw*20.0) - rec_level_int) * 3), 0))
             rec_level_bar = chr(4)*rec_level_int + chr(rec_level_frac) + ' '*((19-rec_level_int))
+            rec_volume = get_recording_volume(input_mixer, input_device)
+            rec_volume = 'Input Volume: ' + str(rec_volume[0]) + ' %'
+            rec_volume = rec_volume + ' '* (20 - len(rec_volume))
             rec_time = 'Time elapsed:  ' + rec_stream.get_recordingtime()
             rec_screen_text = '==== RECORDING! ====' \
                 + rec_time \
-                + '\n' \
+                + rec_volume \
                 + rec_level_bar
             rec_screen.draw_screen(rec_screen_text)
-            time.sleep(0.05)
+            time.sleep(0.001)
         idle = True
         rec_stream.stop_recording()
         rec_stream.close()
+        recording = False
         reclist = get_recordingsList(basepath + '/recordings/')
         MainMenu.replaceLevelItemList('0.', reclist[0])
         led.off()
@@ -289,6 +336,8 @@ if __name__ == '__main__':
                 elif item == 1:
                     MainMenu.setPrevItem()
                 dsphlp.dspwrite(lcd, MainMenu.AllItems[MainMenu.CurrentItem])
+            if recording:
+                set_input_volume(input_mixer, input_device, item * -2)
 
         while len(play) > 0:
             item = play.popleft()
